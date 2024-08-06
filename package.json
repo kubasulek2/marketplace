@@ -1,0 +1,11 @@
+{
+  "name": "marketplace",
+  "version": "1.0.0",
+  "repository": "https://github.com/kubasulek2/marketplace.git",
+  "author": "Kuba Sułkowski <kubasulek2@gmail.com>",
+  "license": "MIT",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ]
+}
