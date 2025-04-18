@@ -2,6 +2,12 @@ node_modules/
 .vscode/
 .cursor/
 
+**/cdk.out/*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
 
 .nx/cache
 .nx/workspace-data

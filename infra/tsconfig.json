@@ -6,6 +6,7 @@
     ],
     "experimentalDecorators": true,
     "strictPropertyInitialization": false,
+    "noUnusedLocals": false
   },
   "exclude": [
     "node_modules",

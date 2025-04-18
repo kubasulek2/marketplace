@@ -1333,7 +1333,7 @@
 
 "@nx/eslint@20.8.0":
   version "20.8.0"
-  resolved "https://registry.yarnpkg.com/@nx/eslint/-/eslint-20.8.0.tgz#a215f64deaee961af2b5349dc4bee48dc55185bc"
+  resolved "https://registry.npmjs.org/@nx/eslint/-/eslint-20.8.0.tgz"
   integrity sha512-FPpw/RHgg08gkhntf/d7xh8GtNKOjTzLrwh7/YUO5UTi26lCjglM0nsFJJEQS988STElgjBEeDh78wcMuXeQ7g==
   dependencies:
     "@nx/devkit" "20.8.0"
@@ -1344,7 +1344,7 @@
 
 "@nx/jest@20.8.0":
   version "20.8.0"
-  resolved "https://registry.yarnpkg.com/@nx/jest/-/jest-20.8.0.tgz#9d2df8de9d2572b686f6c0789c816e10ca7235b0"
+  resolved "https://registry.npmjs.org/@nx/jest/-/jest-20.8.0.tgz"
   integrity sha512-Nrch28OhUnofnIrT+V5+uHWdNVFDHc0G9yF83dPLMipne8NJ9731xxAglL9H7lw73AMTeHaxin2I4UE0Vf1/HA==
   dependencies:
     "@jest/reporters" "^29.4.1"
@@ -2066,7 +2066,7 @@ aws-cdk-lib@^2.124.0:
     table "^6.9.0"
     yaml "1.10.2"
 
-aws-cdk@^2.124.0:
+aws-cdk@2.1010.0, aws-cdk@^2.124.0:
   version "2.1010.0"
   resolved "https://registry.npmjs.org/aws-cdk/-/aws-cdk-2.1010.0.tgz"
   integrity sha512-kYNzBXVUZoRrTuYxRRA2Loz/Uvay0MqHobg8KPZaWylIbw/meUDgtoATRNt+stOdJ9PHODTjWmlDKI+2/KoF+w==
@@ -2324,6 +2324,13 @@ case@1.6.3:
   version "1.6.3"
   resolved "https://registry.npmjs.org/case/-/case-1.6.3.tgz"
   integrity sha512-mzDSXIPaFwVDvZAHqZ9VlbyF4yyXRuX6IvB06WvPYkqJVO24kX1PPhv9bfpKNFZyxYFmmgo03HUiD8iklmJYRQ==
+
+cdk@^2.1010.0:
+  version "2.1010.0"
+  resolved "https://registry.yarnpkg.com/cdk/-/cdk-2.1010.0.tgz#d809ac8fee0eaa9b5bd6335a54ca4f2a982ed6cf"
+  integrity sha512-t1iKprSdsRh4t24ApMb8FFdusn2Kj9oZMjiy1xQSSxyHZpmnrTLCNe+mWR0QjMRWu5pKqcH/vuE0wCar5zsbNQ==
+  dependencies:
+    aws-cdk "2.1010.0"
 
 chalk@^4.0.0, chalk@^4.0.2, chalk@^4.1.0:
   version "4.1.2"
@@ -2653,6 +2660,11 @@ dotenv@^16.4.5, dotenv@~16.4.5:
   version "16.4.7"
   resolved "https://registry.npmjs.org/dotenv/-/dotenv-16.4.7.tgz"
   integrity sha512-47qPchRCykZC03FhkYAhrvwU4xDBFIj1QPqaarj6mdM/hgUzfPHcpkHJOn3mJAufFeeAxAzeGsr5X0M4k6fLZQ==
+
+dotenv@^16.5.0:
+  version "16.5.0"
+  resolved "https://registry.npmjs.org/dotenv/-/dotenv-16.5.0.tgz"
+  integrity sha512-m/C+AwOAr9/W1UOIZUo232ejMNnJAJtYQjUbHoNTBNTJSvqzzDh7vnrei3o3r3m9blf6ZoDkvcw0VmozNRFJxg==
 
 dunder-proto@^1.0.0, dunder-proto@^1.0.1:
   version "1.0.1"
@@ -5514,7 +5526,7 @@ typescript@^5.3.3:
 
 typescript@~5.7.2:
   version "5.7.3"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.7.3.tgz#919b44a7dbb8583a9b856d162be24a54bf80073e"
+  resolved "https://registry.npmjs.org/typescript/-/typescript-5.7.3.tgz"
   integrity sha512-84MVSjMEHP+FQRPy3pX9sTVV/INIex71s9TL2Gm5FG/WG1SqXeKyZ0k7/blY/4FdOzI12CBy1vGc4og/eus0fw==
 
 unbox-primitive@^1.1.0:

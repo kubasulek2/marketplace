@@ -3,14 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "deploy": "ts-node -r tsconfig-paths/register bin/marketplace.ts deploy --all --require-approval never",
+    "diff": "cdk diff --all",
+    "deploy": "cdk deploy --all --require-approval never",
+    "destroy": "cdk destroy --all",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.124.0",
-    "constructs": "^10.3.0"
+    "constructs": "^10.3.0",
+    "dotenv": "^16.5.0"
   },
   "devDependencies": {
+    "cdk": "^2.1010.0",
     "@nx/jest": "20.8.0",
     "@nx/js": "^20.8.0",
     "@swc-node/register": "~1.9.1",
