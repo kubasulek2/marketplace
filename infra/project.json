@@ -1,0 +1,15 @@
+{
+  "name": "infra",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": ".",
+  "projectType": "library",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-script",
+      "options": {
+        "script": "typecheck"
+      }
+    }
+  },
+  "tags": []
+}
