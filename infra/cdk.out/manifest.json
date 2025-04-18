@@ -1,0 +1,247 @@
+{
+  "version": "41.0.0",
+  "artifacts": {
+    "MarketplaceStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "MarketplaceStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "MarketplaceStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://536697237982/eu-central-1",
+      "properties": {
+        "templateFile": "MarketplaceStack.template.json",
+        "terminationProtection": false,
+        "tags": {
+          "Environment": "dev",
+          "Project": "marketplace"
+        },
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::536697237982:role/cdk-hnb659fds-deploy-role-536697237982-eu-central-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::536697237982:role/cdk-hnb659fds-cfn-exec-role-536697237982-eu-central-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-536697237982-eu-central-1/5f9110f523688ccef6f1ab3cd5b63e03e49eb65bd6316ef8fa0ce6a43b8b691f.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "MarketplaceStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::536697237982:role/cdk-hnb659fds-lookup-role-536697237982-eu-central-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "MarketplaceStack.assets"
+      ],
+      "metadata": {
+        "/MarketplaceStack": [
+          {
+            "type": "aws:cdk:stack-tags",
+            "data": [
+              {
+                "Key": "Environment",
+                "Value": "dev"
+              },
+              {
+                "Key": "Project",
+                "Value": "marketplace"
+              }
+            ]
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPC897BE482"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PublicSubnet1/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPublicSubnet1SubnetCCDBBBB0"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PublicSubnet1/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPublicSubnet1RouteTableB2EA30D0"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PublicSubnet1/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPublicSubnet1RouteTableAssociation27F28D2A"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PublicSubnet1/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPublicSubnet1DefaultRoute4ABD45E2"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PublicSubnet1/EIP": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPublicSubnet1EIPBE176CFC"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PublicSubnet1/NATGateway": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPublicSubnet1NATGateway1872504D"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PublicSubnet2/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPublicSubnet2Subnet73D32EDB"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PublicSubnet2/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPublicSubnet2RouteTable94E93886"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PublicSubnet2/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPublicSubnet2RouteTableAssociation7061079B"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PublicSubnet2/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPublicSubnet2DefaultRoute312E0A3A"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PrivateSubnet1/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPrivateSubnet1SubnetE34CC401"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PrivateSubnet1/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPrivateSubnet1RouteTable91ADB20C"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PrivateSubnet1/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPrivateSubnet1RouteTableAssociation7B73BCCF"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PrivateSubnet1/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPrivateSubnet1DefaultRouteDF754F63"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PrivateSubnet2/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPrivateSubnet2Subnet25C2E9CD"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PrivateSubnet2/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPrivateSubnet2RouteTable7F86A15D"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PrivateSubnet2/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPrivateSubnet2RouteTableAssociation70D67F4C"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/PrivateSubnet2/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCPrivateSubnet2DefaultRouteC9E8C81D"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/IGW": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCIGW46F20C4B"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/VPCGW": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCVPCGW5F8F7EF7"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/S3/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCS31FDDFF8D"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/DynamoDB/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCDynamoDBEFA3530C"
+          }
+        ],
+        "/MarketplaceStack/MarketplaceVPC/RestrictDefaultSecurityGroupCustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MarketplaceVPCRestrictDefaultSecurityGroupCustomResource82CB4BA4"
+          }
+        ],
+        "/MarketplaceStack/Custom::VpcRestrictDefaultSGCustomResourceProvider": [
+          {
+            "type": "aws:cdk:is-custom-resource-handler-customResourceProvider",
+            "data": true
+          }
+        ],
+        "/MarketplaceStack/Custom::VpcRestrictDefaultSGCustomResourceProvider/Role": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomVpcRestrictDefaultSGCustomResourceProviderRole26592FE0"
+          }
+        ],
+        "/MarketplaceStack/Custom::VpcRestrictDefaultSGCustomResourceProvider/Handler": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomVpcRestrictDefaultSGCustomResourceProviderHandlerDC833E5E"
+          }
+        ],
+        "/MarketplaceStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/MarketplaceStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/MarketplaceStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "MarketplaceStack"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    }
+  },
+  "minimumCliVersion": "2.1005.0"
+}

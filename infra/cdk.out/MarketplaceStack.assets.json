@@ -1,0 +1,36 @@
+{
+  "version": "41.0.0",
+  "files": {
+    "7fa1e366ee8a9ded01fc355f704cff92bfd179574e6f9cfee800a3541df1b200": {
+      "displayName": "MarketplaceStack/Custom::VpcRestrictDefaultSGCustomResourceProvider Code",
+      "source": {
+        "path": "asset.7fa1e366ee8a9ded01fc355f704cff92bfd179574e6f9cfee800a3541df1b200",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "536697237982-eu-central-1": {
+          "bucketName": "cdk-hnb659fds-assets-536697237982-eu-central-1",
+          "objectKey": "7fa1e366ee8a9ded01fc355f704cff92bfd179574e6f9cfee800a3541df1b200.zip",
+          "region": "eu-central-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::536697237982:role/cdk-hnb659fds-file-publishing-role-536697237982-eu-central-1"
+        }
+      }
+    },
+    "5f9110f523688ccef6f1ab3cd5b63e03e49eb65bd6316ef8fa0ce6a43b8b691f": {
+      "displayName": "MarketplaceStack Template",
+      "source": {
+        "path": "MarketplaceStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "536697237982-eu-central-1": {
+          "bucketName": "cdk-hnb659fds-assets-536697237982-eu-central-1",
+          "objectKey": "5f9110f523688ccef6f1ab3cd5b63e03e49eb65bd6316ef8fa0ce6a43b8b691f.json",
+          "region": "eu-central-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::536697237982:role/cdk-hnb659fds-file-publishing-role-536697237982-eu-central-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

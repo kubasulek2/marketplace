@@ -1,0 +1,748 @@
+{
+ "Resources": {
+  "MarketplaceVPC897BE482": {
+   "Type": "AWS::EC2::VPC",
+   "Properties": {
+    "CidrBlock": "10.231.0.0/16",
+    "EnableDnsHostnames": true,
+    "EnableDnsSupport": true,
+    "InstanceTenancy": "default",
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-vpc"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/Resource"
+   }
+  },
+  "MarketplaceVPCPublicSubnet1SubnetCCDBBBB0": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "eu-central-1a",
+    "CidrBlock": "10.231.0.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "Public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-public-subnet-1"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ],
+    "VpcId": {
+     "Ref": "MarketplaceVPC897BE482"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PublicSubnet1/Subnet"
+   }
+  },
+  "MarketplaceVPCPublicSubnet1RouteTableB2EA30D0": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-public-subnet-1"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ],
+    "VpcId": {
+     "Ref": "MarketplaceVPC897BE482"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PublicSubnet1/RouteTable"
+   }
+  },
+  "MarketplaceVPCPublicSubnet1RouteTableAssociation27F28D2A": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "MarketplaceVPCPublicSubnet1RouteTableB2EA30D0"
+    },
+    "SubnetId": {
+     "Ref": "MarketplaceVPCPublicSubnet1SubnetCCDBBBB0"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PublicSubnet1/RouteTableAssociation"
+   }
+  },
+  "MarketplaceVPCPublicSubnet1DefaultRoute4ABD45E2": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "MarketplaceVPCIGW46F20C4B"
+    },
+    "RouteTableId": {
+     "Ref": "MarketplaceVPCPublicSubnet1RouteTableB2EA30D0"
+    }
+   },
+   "DependsOn": [
+    "MarketplaceVPCVPCGW5F8F7EF7"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PublicSubnet1/DefaultRoute"
+   }
+  },
+  "MarketplaceVPCPublicSubnet1EIPBE176CFC": {
+   "Type": "AWS::EC2::EIP",
+   "Properties": {
+    "Domain": "vpc",
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-public-subnet-1"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PublicSubnet1/EIP"
+   }
+  },
+  "MarketplaceVPCPublicSubnet1NATGateway1872504D": {
+   "Type": "AWS::EC2::NatGateway",
+   "Properties": {
+    "AllocationId": {
+     "Fn::GetAtt": [
+      "MarketplaceVPCPublicSubnet1EIPBE176CFC",
+      "AllocationId"
+     ]
+    },
+    "SubnetId": {
+     "Ref": "MarketplaceVPCPublicSubnet1SubnetCCDBBBB0"
+    },
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-public-subnet-1"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ]
+   },
+   "DependsOn": [
+    "MarketplaceVPCPublicSubnet1DefaultRoute4ABD45E2",
+    "MarketplaceVPCPublicSubnet1RouteTableAssociation27F28D2A"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PublicSubnet1/NATGateway"
+   }
+  },
+  "MarketplaceVPCPublicSubnet2Subnet73D32EDB": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "eu-central-1b",
+    "CidrBlock": "10.231.1.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "Public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-public-subnet-2"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ],
+    "VpcId": {
+     "Ref": "MarketplaceVPC897BE482"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PublicSubnet2/Subnet"
+   }
+  },
+  "MarketplaceVPCPublicSubnet2RouteTable94E93886": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-public-subnet-2"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ],
+    "VpcId": {
+     "Ref": "MarketplaceVPC897BE482"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PublicSubnet2/RouteTable"
+   }
+  },
+  "MarketplaceVPCPublicSubnet2RouteTableAssociation7061079B": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "MarketplaceVPCPublicSubnet2RouteTable94E93886"
+    },
+    "SubnetId": {
+     "Ref": "MarketplaceVPCPublicSubnet2Subnet73D32EDB"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PublicSubnet2/RouteTableAssociation"
+   }
+  },
+  "MarketplaceVPCPublicSubnet2DefaultRoute312E0A3A": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "MarketplaceVPCIGW46F20C4B"
+    },
+    "RouteTableId": {
+     "Ref": "MarketplaceVPCPublicSubnet2RouteTable94E93886"
+    }
+   },
+   "DependsOn": [
+    "MarketplaceVPCVPCGW5F8F7EF7"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PublicSubnet2/DefaultRoute"
+   }
+  },
+  "MarketplaceVPCPrivateSubnet1SubnetE34CC401": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "eu-central-1a",
+    "CidrBlock": "10.231.2.0/24",
+    "MapPublicIpOnLaunch": false,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "Private"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Private"
+     },
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-private-subnet-1"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ],
+    "VpcId": {
+     "Ref": "MarketplaceVPC897BE482"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PrivateSubnet1/Subnet"
+   }
+  },
+  "MarketplaceVPCPrivateSubnet1RouteTable91ADB20C": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-private-subnet-1"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ],
+    "VpcId": {
+     "Ref": "MarketplaceVPC897BE482"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PrivateSubnet1/RouteTable"
+   }
+  },
+  "MarketplaceVPCPrivateSubnet1RouteTableAssociation7B73BCCF": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "MarketplaceVPCPrivateSubnet1RouteTable91ADB20C"
+    },
+    "SubnetId": {
+     "Ref": "MarketplaceVPCPrivateSubnet1SubnetE34CC401"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PrivateSubnet1/RouteTableAssociation"
+   }
+  },
+  "MarketplaceVPCPrivateSubnet1DefaultRouteDF754F63": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "NatGatewayId": {
+     "Ref": "MarketplaceVPCPublicSubnet1NATGateway1872504D"
+    },
+    "RouteTableId": {
+     "Ref": "MarketplaceVPCPrivateSubnet1RouteTable91ADB20C"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PrivateSubnet1/DefaultRoute"
+   }
+  },
+  "MarketplaceVPCPrivateSubnet2Subnet25C2E9CD": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "eu-central-1b",
+    "CidrBlock": "10.231.3.0/24",
+    "MapPublicIpOnLaunch": false,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "Private"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Private"
+     },
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-private-subnet-2"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ],
+    "VpcId": {
+     "Ref": "MarketplaceVPC897BE482"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PrivateSubnet2/Subnet"
+   }
+  },
+  "MarketplaceVPCPrivateSubnet2RouteTable7F86A15D": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-private-subnet-2"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ],
+    "VpcId": {
+     "Ref": "MarketplaceVPC897BE482"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PrivateSubnet2/RouteTable"
+   }
+  },
+  "MarketplaceVPCPrivateSubnet2RouteTableAssociation70D67F4C": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "MarketplaceVPCPrivateSubnet2RouteTable7F86A15D"
+    },
+    "SubnetId": {
+     "Ref": "MarketplaceVPCPrivateSubnet2Subnet25C2E9CD"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PrivateSubnet2/RouteTableAssociation"
+   }
+  },
+  "MarketplaceVPCPrivateSubnet2DefaultRouteC9E8C81D": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "NatGatewayId": {
+     "Ref": "MarketplaceVPCPublicSubnet1NATGateway1872504D"
+    },
+    "RouteTableId": {
+     "Ref": "MarketplaceVPCPrivateSubnet2RouteTable7F86A15D"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/PrivateSubnet2/DefaultRoute"
+   }
+  },
+  "MarketplaceVPCIGW46F20C4B": {
+   "Type": "AWS::EC2::InternetGateway",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-vpc"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/IGW"
+   }
+  },
+  "MarketplaceVPCVPCGW5F8F7EF7": {
+   "Type": "AWS::EC2::VPCGatewayAttachment",
+   "Properties": {
+    "InternetGatewayId": {
+     "Ref": "MarketplaceVPCIGW46F20C4B"
+    },
+    "VpcId": {
+     "Ref": "MarketplaceVPC897BE482"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/VPCGW"
+   }
+  },
+  "MarketplaceVPCS31FDDFF8D": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "RouteTableIds": [
+     {
+      "Ref": "MarketplaceVPCPrivateSubnet1RouteTable91ADB20C"
+     },
+     {
+      "Ref": "MarketplaceVPCPrivateSubnet2RouteTable7F86A15D"
+     },
+     {
+      "Ref": "MarketplaceVPCPublicSubnet1RouteTableB2EA30D0"
+     },
+     {
+      "Ref": "MarketplaceVPCPublicSubnet2RouteTable94E93886"
+     }
+    ],
+    "ServiceName": {
+     "Fn::Join": [
+      "",
+      [
+       "com.amazonaws.",
+       {
+        "Ref": "AWS::Region"
+       },
+       ".s3"
+      ]
+     ]
+    },
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-vpc"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ],
+    "VpcEndpointType": "Gateway",
+    "VpcId": {
+     "Ref": "MarketplaceVPC897BE482"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/S3/Resource"
+   }
+  },
+  "MarketplaceVPCDynamoDBEFA3530C": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "RouteTableIds": [
+     {
+      "Ref": "MarketplaceVPCPrivateSubnet1RouteTable91ADB20C"
+     },
+     {
+      "Ref": "MarketplaceVPCPrivateSubnet2RouteTable7F86A15D"
+     },
+     {
+      "Ref": "MarketplaceVPCPublicSubnet1RouteTableB2EA30D0"
+     },
+     {
+      "Ref": "MarketplaceVPCPublicSubnet2RouteTable94E93886"
+     }
+    ],
+    "ServiceName": {
+     "Fn::Join": [
+      "",
+      [
+       "com.amazonaws.",
+       {
+        "Ref": "AWS::Region"
+       },
+       ".dynamodb"
+      ]
+     ]
+    },
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "Name",
+      "Value": "marketplace-dev-vpc"
+     },
+     {
+      "Key": "Project",
+      "Value": "marketplace"
+     }
+    ],
+    "VpcEndpointType": "Gateway",
+    "VpcId": {
+     "Ref": "MarketplaceVPC897BE482"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/DynamoDB/Resource"
+   }
+  },
+  "MarketplaceVPCRestrictDefaultSecurityGroupCustomResource82CB4BA4": {
+   "Type": "Custom::VpcRestrictDefaultSG",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "CustomVpcRestrictDefaultSGCustomResourceProviderHandlerDC833E5E",
+      "Arn"
+     ]
+    },
+    "DefaultSecurityGroupId": {
+     "Fn::GetAtt": [
+      "MarketplaceVPC897BE482",
+      "DefaultSecurityGroup"
+     ]
+    },
+    "Account": "536697237982"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/MarketplaceVPC/RestrictDefaultSecurityGroupCustomResource/Default"
+   }
+  },
+  "CustomVpcRestrictDefaultSGCustomResourceProviderRole26592FE0": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Version": "2012-10-17",
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ]
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+     }
+    ],
+    "Policies": [
+     {
+      "PolicyName": "Inline",
+      "PolicyDocument": {
+       "Version": "2012-10-17",
+       "Statement": [
+        {
+         "Effect": "Allow",
+         "Action": [
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupEgress"
+         ],
+         "Resource": [
+          {
+           "Fn::Join": [
+            "",
+            [
+             "arn:aws:ec2:eu-central-1:536697237982:security-group/",
+             {
+              "Fn::GetAtt": [
+               "MarketplaceVPC897BE482",
+               "DefaultSecurityGroup"
+              ]
+             }
+            ]
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/Custom::VpcRestrictDefaultSGCustomResourceProvider/Role"
+   }
+  },
+  "CustomVpcRestrictDefaultSGCustomResourceProviderHandlerDC833E5E": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-536697237982-eu-central-1",
+     "S3Key": "7fa1e366ee8a9ded01fc355f704cff92bfd179574e6f9cfee800a3541df1b200.zip"
+    },
+    "Timeout": 900,
+    "MemorySize": 128,
+    "Handler": "__entrypoint__.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CustomVpcRestrictDefaultSGCustomResourceProviderRole26592FE0",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Description": "Lambda function for removing all inbound/outbound rules from the VPC default security group"
+   },
+   "DependsOn": [
+    "CustomVpcRestrictDefaultSGCustomResourceProviderRole26592FE0"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/Custom::VpcRestrictDefaultSGCustomResourceProvider/Handler",
+    "aws:asset:path": "asset.7fa1e366ee8a9ded01fc355f704cff92bfd179574e6f9cfee800a3541df1b200",
+    "aws:asset:property": "Code"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/3WOwW6DQAxEvyX3ZZvQU48URVUuEYKKa2UWJ3UCXrT2gqoo/16h0HDqaWaeR9akdve2tdsNTJK49pp01NhbpeCuBib5QpfaWz04k5+4LnJTxKYjV8WGUWe2utJHxU9oOlz5yjIR7wiUPD/Ls9kfilmOoB+gOMGPKQKNoLg+PrBiYHwWHkuWlKmC++6R1SykHtye28ET61L9i3dTovgYHJo8ivp+jSf+51QEP1KL4R0ETSaCWimcic93w75Fe5GXMU3t7tXuNhchSkJkpR5t+dBfexU8nV8BAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "MarketplaceStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}
