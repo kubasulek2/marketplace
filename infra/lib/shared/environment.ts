@@ -16,7 +16,7 @@ export const getEnvironment = (): {
   return {
     context: {
       project: 'marketplace',
-      environment: process.env.DEPLOY_ENV as 'dev' | 'staging' | 'prod',
+      environment: process.env.DEPLOY_ENV as 'dev' | 'prod',
     },
     env,
   };
