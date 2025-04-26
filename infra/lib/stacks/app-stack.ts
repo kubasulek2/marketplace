@@ -10,6 +10,7 @@ import { PublicRestApiGateway } from '../constructs/public-rest-api-gateway';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 import { ApiCloudFrontDistribution } from '../constructs/api-cloud-front-distribution';
 import * as cr from 'aws-cdk-lib/custom-resources';
+import { v4 as uuid } from 'uuid';
 
 export interface AppStackProps extends StackProps {
   context: DeploymentContext;
@@ -23,9 +24,11 @@ export interface AppStackProps extends StackProps {
 export class AppStack extends Stack {
   constructor(scope: Construct, id: string, props: AppStackProps) {
     super(scope, id, props);
+    const originSecret = uuid();
 
     const api = new PublicRestApiGateway(this, getEnvSpecificName('PublicApi'), {
       environment: props.context.environment,
+      originSecret,
     });
 
     const distribution = new ApiCloudFrontDistribution(
@@ -35,6 +38,7 @@ export class AppStack extends Stack {
         apiGateway: api.api,
         certificate: props.apiCertificate,
         domainNames: [props.apiDnsRecord],
+        originSecret,
       }
     );
 

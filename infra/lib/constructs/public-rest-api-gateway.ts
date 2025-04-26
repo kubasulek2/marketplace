@@ -2,9 +2,10 @@ import { Construct } from 'constructs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import { AppEnvironment } from '../shared/types';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
-
+import * as iam from 'aws-cdk-lib/aws-iam';
 export interface PublicRestApiGatewayProps {
   environment: AppEnvironment;
+  originSecret: string;
 }
 
 export class PublicRestApiGateway extends Construct {
@@ -45,6 +46,29 @@ export class PublicRestApiGateway extends Construct {
         ],
         allowCredentials: true,
       },
+      policy: new iam.PolicyDocument({
+        statements: [
+          // Deny all requests NOT having the correct header
+          new iam.PolicyStatement({
+            effect: iam.Effect.DENY,
+            principals: [new iam.AnyPrincipal()],
+            actions: ['execute-api:Invoke'],
+            resources: ['execute-api:/*'],
+            conditions: {
+              StringNotEquals: {
+                'aws:RequestHeader/X-Origin-Secret': props.originSecret,
+              },
+            },
+          }),
+          // Allow requests that were not denied
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            principals: [new iam.AnyPrincipal()],
+            actions: ['execute-api:Invoke'],
+            resources: ['execute-api:/*'],
+          }),
+        ],
+      }),
     });
 
     // Add test endpoint

@@ -9,6 +9,7 @@ export interface ApiCloudFrontDistributionProps {
   apiGateway: apigateway.RestApi;
   certificate: acm.ICertificate;
   domainNames: string[];
+  originSecret: string;
 }
 
 export class ApiCloudFrontDistribution extends Construct {
@@ -24,6 +25,9 @@ export class ApiCloudFrontDistribution extends Construct {
         origin: new origins.HttpOrigin(apiGatewayDomain, {
           originPath: `/${props.apiGateway.deploymentStage.stageName}`,
           protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+          customHeaders: {
+            'X-Origin-Secret': props.originSecret,
+          },
         }),
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
