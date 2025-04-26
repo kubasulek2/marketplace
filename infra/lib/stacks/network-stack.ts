@@ -37,7 +37,7 @@ export class NetworkStack extends Stack {
   public readonly apiCertificate: acm.ICertificate;
   public readonly authCertificate: acm.ICertificate;
   public readonly kmsKey: kms.IAlias;
-
+  public readonly logsBucket: s3.Bucket;
   constructor(scope: Construct, id: string, props: NetworkStackProps) {
     super(scope, id, props);
 
@@ -115,9 +115,9 @@ export class NetworkStack extends Stack {
       );
     });
 
-    // VPC Flow Logs
-    const logsBucket = new s3.Bucket(this, getEnvSpecificName('vpc-flow-logs-bucket'), {
-      bucketName: getEnvSpecificName(`vpc-flow-logs-${this.account}`),
+    // Logging bucket
+    this.logsBucket = new s3.Bucket(this, getEnvSpecificName('logs-bucket'), {
+      bucketName: getEnvSpecificName(`logs-${this.account}`),
       versioned: true,
       lifecycleRules: [
         {
@@ -129,16 +129,32 @@ export class NetworkStack extends Stack {
           ],
         },
       ],
-      encryption: s3.BucketEncryption.S3_MANAGED,
+      encryption: s3.BucketEncryption.KMS,
+      encryptionKey: this.kmsKey,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      bucketKeyEnabled: true,
     });
+
+    this.kmsKey.addToResourcePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.ServicePrincipal('s3.amazonaws.com')],
+        actions: ['kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*', 'kms:GenerateDataKey*'],
+        resources: ['*'],
+        conditions: {
+          StringEquals: {
+            'kms:EncryptionContext:aws:s3:arn': this.logsBucket.arnForObjects('*'),
+          },
+        },
+      })
+    );
 
     // Add bucket policy instead of IAM role
     const bucketPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       principals: [new iam.ServicePrincipal('delivery.logs.amazonaws.com')],
       actions: ['s3:PutObject'],
-      resources: [logsBucket.arnForObjects(`AWSLogs/${this.account}/*`)],
+      resources: [this.logsBucket.arnForObjects(`AWSLogs/${this.account}/*`)],
       conditions: {
         StringEquals: {
           'aws:SourceAccount': this.account,
@@ -154,7 +170,7 @@ export class NetworkStack extends Stack {
       effect: iam.Effect.ALLOW,
       principals: [new iam.ServicePrincipal('delivery.logs.amazonaws.com')],
       actions: ['s3:GetBucketAcl'],
-      resources: [logsBucket.bucketArn],
+      resources: [this.logsBucket.bucketArn],
       conditions: {
         StringEquals: {
           'aws:SourceAccount': this.account,
@@ -165,12 +181,12 @@ export class NetworkStack extends Stack {
       },
     });
 
-    logsBucket.addToResourcePolicy(bucketPolicy);
-    logsBucket.addToResourcePolicy(bucketAclPolicy);
+    this.logsBucket.addToResourcePolicy(bucketPolicy);
+    this.logsBucket.addToResourcePolicy(bucketAclPolicy);
 
-    const flowLogs = new ec2.FlowLog(this, 'VPCFlowLogs', {
+    new ec2.FlowLog(this, 'VPCFlowLogs', {
       resourceType: ec2.FlowLogResourceType.fromVpc(this.vpc),
-      destination: ec2.FlowLogDestination.toS3(logsBucket, undefined, {
+      destination: ec2.FlowLogDestination.toS3(this.logsBucket, 'vpc-flow-logs', {
         fileFormat: ec2.FlowLogFileFormat.PARQUET,
       }),
       flowLogName: getEnvSpecificName('vpc-flow-logs'),

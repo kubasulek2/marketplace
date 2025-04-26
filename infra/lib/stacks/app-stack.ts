@@ -10,6 +10,7 @@ import { PublicRestApiGateway } from '../constructs/public-rest-api-gateway';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 import { ApiCloudFrontDistribution } from '../constructs/api-cloud-front-distribution';
 import * as cr from 'aws-cdk-lib/custom-resources';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { v4 as uuid } from 'uuid';
 
 export interface AppStackProps extends StackProps {
@@ -19,6 +20,7 @@ export interface AppStackProps extends StackProps {
   authDnsRecord: string;
   apiCertificate: acm.ICertificate;
   authCertificate: acm.ICertificate;
+  logsBucket: s3.Bucket;
 }
 
 export class AppStack extends Stack {
@@ -39,6 +41,7 @@ export class AppStack extends Stack {
         certificate: props.apiCertificate,
         domainNames: [props.apiDnsRecord],
         originSecret,
+        logsBucket: props.logsBucket,
       }
     );
 

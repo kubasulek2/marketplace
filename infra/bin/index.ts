@@ -18,4 +18,5 @@ const appStack = new AppStack(app, appStackName, {
   apiDnsRecord: networkStack.apiDnsRecord,
   authCertificate: networkStack.authCertificate,
   authDnsRecord: networkStack.authDnsRecord,
+  logsBucket: networkStack.logsBucket,
 });
