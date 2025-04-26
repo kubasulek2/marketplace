@@ -3,5 +3,9 @@
     "eu-central-1a",
     "eu-central-1b",
     "eu-central-1c"
-  ]
+  ],
+  "hosted-zone:account=536697237982:domainName=kuba-bright.com:region=eu-central-1": {
+    "Id": "/hostedzone/Z02954622EZX5AATJ13PO",
+    "Name": "kuba-bright.com."
+  }
 }

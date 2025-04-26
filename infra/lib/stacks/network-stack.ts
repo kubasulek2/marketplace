@@ -19,7 +19,7 @@ export interface NetworkStackProps extends StackProps {
 }
 
 export class NetworkStack extends Stack {
-  private static readonly domain = 'kuba-bright.com';
+  public static readonly domain = 'kuba-bright.com';
   private readonly certMapping: CertMapping = {
     dev: {
       api: 'arn:aws:acm:us-east-1:536697237982:certificate/312f7793-1480-4dda-8091-4cb10e26e761',
@@ -111,10 +111,6 @@ export class NetworkStack extends Stack {
       );
     });
 
-    // Add common tags to all resources in the stack
-    Tags.of(this).add('Project', props.context.project);
-    Tags.of(this).add('Environment', props.context.environment);
-
     // VPC Flow Logs
     const logsBucket = new s3.Bucket(this, getEnvSpecificName('vpc-flow-logs-bucket'), {
       bucketName: getEnvSpecificName(`vpc-flow-logs-${this.account}`),
@@ -176,6 +172,10 @@ export class NetworkStack extends Stack {
       flowLogName: getEnvSpecificName('vpc-flow-logs'),
       trafficType: ec2.FlowLogTrafficType.ALL,
     });
+
+    // Add common tags to all resources in the stack
+    Tags.of(this).add('Project', props.context.project);
+    Tags.of(this).add('Environment', props.context.environment);
   }
 
   private getDnsRecord(subdomain: string, environment: DeploymentContext['environment']) {
