@@ -3,6 +3,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import { Construct } from 'constructs';
 import { AppEnvironment, DeploymentContext } from '../shared/types';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
@@ -35,9 +36,12 @@ export class NetworkStack extends Stack {
   public readonly authDnsRecord: string;
   public readonly apiCertificate: acm.ICertificate;
   public readonly authCertificate: acm.ICertificate;
+  public readonly kmsKey: kms.IAlias;
 
   constructor(scope: Construct, id: string, props: NetworkStackProps) {
     super(scope, id, props);
+
+    this.kmsKey = kms.Alias.fromAliasName(this, 'KMSKey', 'alias/marketplace-key');
 
     this.apiDnsRecord = this.getDnsRecord('api', props.context.environment);
     this.authDnsRecord = this.getDnsRecord('auth', props.context.environment);
