@@ -15,8 +15,9 @@ const appStack = new AppStack(app, appStackName, {
   ...environment,
   vpc: networkStack.vpc,
   apiCertificate: networkStack.apiCertificate,
+  regionalCertificate: networkStack.regionalCertificate,
   apiDnsRecord: networkStack.apiDnsRecord,
-  authCertificate: networkStack.authCertificate,
   authDnsRecord: networkStack.authDnsRecord,
   logsBucket: networkStack.logsBucket,
+  kmsKey: networkStack.kmsKey,
 });

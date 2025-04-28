@@ -3,9 +3,14 @@ import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import { AppEnvironment } from '../shared/types';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+
 export interface PublicRestApiGatewayProps {
   environment: AppEnvironment;
   originSecret: string;
+  vpc: ec2.Vpc;
+  loadBalancerDnsName: string;
 }
 
 export class PublicRestApiGateway extends Construct {
@@ -21,7 +26,7 @@ export class PublicRestApiGateway extends Construct {
       'method.response.header.Access-Control-Allow-Headers': true,
     };
 
-    const corsIntegrationResponseParameters = {
+    const corsResponseHeaders = {
       'method.response.header.Access-Control-Allow-Origin': "'*'",
       'method.response.header.Access-Control-Allow-Methods': "'GET,POST,PUT,DELETE,OPTIONS,PATCH'",
       'method.response.header.Access-Control-Allow-Headers':
@@ -85,7 +90,7 @@ export class PublicRestApiGateway extends Construct {
                 message: 'ok',
               }),
             },
-            responseParameters: corsIntegrationResponseParameters,
+            responseParameters: corsResponseHeaders,
           },
         ],
         requestTemplates: {
@@ -109,7 +114,7 @@ export class PublicRestApiGateway extends Construct {
     this.api.addGatewayResponse('UNAUTHORIZED', {
       type: apigateway.ResponseType.UNAUTHORIZED,
       statusCode: '401',
-      responseHeaders: corsIntegrationResponseParameters,
+      responseHeaders: corsResponseHeaders,
       templates: {
         'application/json': JSON.stringify({
           message: 'Unauthorized',
@@ -123,7 +128,7 @@ export class PublicRestApiGateway extends Construct {
     this.api.addGatewayResponse('FORBIDDEN', {
       type: apigateway.ResponseType.ACCESS_DENIED,
       statusCode: '403',
-      responseHeaders: corsIntegrationResponseParameters,
+      responseHeaders: corsResponseHeaders,
       templates: {
         'application/json': JSON.stringify({
           message: 'Forbidden',
@@ -137,7 +142,7 @@ export class PublicRestApiGateway extends Construct {
     this.api.addGatewayResponse('MISSING_AUTH_TOKEN', {
       type: apigateway.ResponseType.RESOURCE_NOT_FOUND,
       statusCode: '404',
-      responseHeaders: corsIntegrationResponseParameters,
+      responseHeaders: corsResponseHeaders,
       templates: {
         'application/json': JSON.stringify({
           message: 'Route not found',
@@ -151,7 +156,7 @@ export class PublicRestApiGateway extends Construct {
     this.api.addGatewayResponse('NOT_FOUND', {
       type: apigateway.ResponseType.RESOURCE_NOT_FOUND,
       statusCode: '404',
-      responseHeaders: corsIntegrationResponseParameters,
+      responseHeaders: corsResponseHeaders,
       templates: {
         'application/json': JSON.stringify({
           message: 'Resource not found',
@@ -159,6 +164,29 @@ export class PublicRestApiGateway extends Construct {
           timestamp: '$context.requestTime',
           requestId: '$context.requestId',
         }),
+      },
+    });
+
+    const proxyIntegration = new apigateway.Integration({
+      type: apigateway.IntegrationType.HTTP_PROXY,
+
+      integrationHttpMethod: 'ANY',
+      options: {
+        requestParameters: {
+          'integration.request.path.proxy': 'method.request.path.proxy',
+        },
+      },
+      uri: `https://${props.loadBalancerDnsName}/{proxy}`,
+    });
+
+    const proxyResource = this.api.root.addResource('{proxy+}', {
+      defaultIntegration: proxyIntegration,
+    });
+
+    proxyResource.addMethod('ANY', proxyIntegration, {
+      authorizationType: apigateway.AuthorizationType.NONE,
+      requestParameters: {
+        'method.request.path.proxy': true,
       },
     });
   }

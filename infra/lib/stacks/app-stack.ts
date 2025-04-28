@@ -12,15 +12,17 @@ import { ApiCloudFrontDistribution } from '../constructs/api-cloud-front-distrib
 import * as cr from 'aws-cdk-lib/custom-resources';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { v4 as uuid } from 'uuid';
-
+import { GatewayEcsCluster } from '../constructs/gateway-ecs-cluster';
+import * as kms from 'aws-cdk-lib/aws-kms';
 export interface AppStackProps extends StackProps {
   context: DeploymentContext;
   vpc: ec2.Vpc;
   apiDnsRecord: string;
   authDnsRecord: string;
   apiCertificate: acm.ICertificate;
-  authCertificate: acm.ICertificate;
+  regionalCertificate: acm.ICertificate;
   logsBucket: s3.Bucket;
+  kmsKey: kms.IAlias;
 }
 
 export class AppStack extends Stack {
@@ -28,9 +30,18 @@ export class AppStack extends Stack {
     super(scope, id, props);
     const originSecret = uuid();
 
+    const gatewayEcsCluster = new GatewayEcsCluster(this, getEnvSpecificName('GatewayEcsCluster'), {
+      vpc: props.vpc,
+      certificate: props.regionalCertificate,
+      kmsKey: props.kmsKey,
+      context: props.context,
+    });
+
     const api = new PublicRestApiGateway(this, getEnvSpecificName('PublicApi'), {
       environment: props.context.environment,
       originSecret,
+      vpc: props.vpc,
+      loadBalancerDnsName: gatewayEcsCluster.loadBalancerDnsName,
     });
 
     const distribution = new ApiCloudFrontDistribution(

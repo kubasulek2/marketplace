@@ -4,14 +4,15 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as kms from 'aws-cdk-lib/aws-kms';
+import * as route53 from 'aws-cdk-lib/aws-route53';
 import { Construct } from 'constructs';
 import { AppEnvironment, DeploymentContext } from '../shared/types';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
-
 type CertMapping = {
   [key in AppEnvironment]: {
     api: string;
     auth: string;
+    regional: string;
   };
 };
 
@@ -25,17 +26,21 @@ export class NetworkStack extends Stack {
     dev: {
       api: 'arn:aws:acm:us-east-1:536697237982:certificate/312f7793-1480-4dda-8091-4cb10e26e761',
       auth: 'arn:aws:acm:us-east-1:536697237982:certificate/7e068d81-2374-4ef3-a67e-82fd62ef1541',
+      regional:
+        'arn:aws:acm:eu-central-1:536697237982:certificate/8a726752-1267-4d0e-b439-31d51dd568cf',
     },
     prod: {
       api: 'arn:aws:acm:us-east-1:536697237982:certificate/aae4aa96-0391-415e-8633-0ac46705ef93',
       auth: 'arn:aws:acm:us-east-1:536697237982:certificate/7570dd87-e9e9-4691-97e2-a6d7367b93ee',
+      regional:
+        'arn:aws:acm:eu-central-1:536697237982:certificate/8a726752-1267-4d0e-b439-31d51dd568cf',
     },
   };
   public readonly vpc: ec2.Vpc;
   public readonly apiDnsRecord: string;
   public readonly authDnsRecord: string;
   public readonly apiCertificate: acm.ICertificate;
-  public readonly authCertificate: acm.ICertificate;
+  public readonly regionalCertificate: acm.ICertificate;
   public readonly kmsKey: kms.IAlias;
   public readonly logsBucket: s3.Bucket;
   constructor(scope: Construct, id: string, props: NetworkStackProps) {
@@ -45,20 +50,6 @@ export class NetworkStack extends Stack {
 
     this.apiDnsRecord = this.getDnsRecord('api', props.context.environment);
     this.authDnsRecord = this.getDnsRecord('auth', props.context.environment);
-
-    // Import existing API certificate
-    this.apiCertificate = acm.Certificate.fromCertificateArn(
-      this,
-      getEnvSpecificName('api-certificate'),
-      this.certMapping[props.context.environment].api
-    );
-
-    // Import existing Auth certificate
-    this.authCertificate = acm.Certificate.fromCertificateArn(
-      this,
-      getEnvSpecificName('auth-certificate'),
-      this.certMapping[props.context.environment].auth
-    );
 
     const vpcName = getEnvSpecificName('vpc');
 
@@ -115,6 +106,19 @@ export class NetworkStack extends Stack {
       );
     });
 
+    // Import existing API certificate
+    this.apiCertificate = acm.Certificate.fromCertificateArn(
+      this,
+      getEnvSpecificName('api-certificate'),
+      this.certMapping[props.context.environment].api
+    );
+
+    this.regionalCertificate = acm.Certificate.fromCertificateArn(
+      this,
+      getEnvSpecificName('regional-certificate'),
+      this.certMapping[props.context.environment].regional
+    );
+
     // Logging bucket
     this.logsBucket = new s3.Bucket(this, getEnvSpecificName('logs-bucket'), {
       bucketName: getEnvSpecificName(`logs-${this.account}`),
@@ -131,10 +135,12 @@ export class NetworkStack extends Stack {
       ],
       encryption: s3.BucketEncryption.KMS,
       encryptionKey: this.kmsKey,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
+      objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
       bucketKeyEnabled: true,
     });
 
+    // this is not executed because we import the key - left here for reference (done manually)
     this.kmsKey.addToResourcePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -144,6 +150,28 @@ export class NetworkStack extends Stack {
         conditions: {
           StringEquals: {
             'kms:EncryptionContext:aws:s3:arn': this.logsBucket.arnForObjects('*'),
+          },
+        },
+      })
+    );
+
+    // this is not executed because we import the key - left here for reference (done manually)
+    this.kmsKey.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: 'AllowEC2AndEBSUsage',
+        actions: [
+          'kms:Encrypt',
+          'kms:Decrypt',
+          'kms:ReEncrypt*',
+          'kms:GenerateDataKey*',
+          'kms:CreateGrant',
+          'kms:DescribeKey',
+        ],
+        principals: [new iam.ServicePrincipal('ec2.amazonaws.com')],
+        resources: ['*'],
+        conditions: {
+          StringEquals: {
+            'kms:ViaService': `ec2.${this.region}.amazonaws.com`,
           },
         },
       })
