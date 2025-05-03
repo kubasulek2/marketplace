@@ -15,6 +15,7 @@ import { v4 as uuid } from 'uuid';
 import { GatewayEcsCluster } from '../constructs/gateway-ecs-cluster';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import { RestApi } from 'aws-cdk-lib/aws-apigateway';
 
 export interface AppStackProps extends StackProps {
   context: DeploymentContext;
@@ -29,6 +30,8 @@ export interface AppStackProps extends StackProps {
 
 export class AppStack extends Stack {
   public readonly ssmOriginSecretName: string;
+  public readonly restApi: RestApi;
+
   constructor(scope: Construct, id: string, props: AppStackProps) {
     super(scope, id, props);
     const originSecret = uuid();
@@ -54,6 +57,8 @@ export class AppStack extends Stack {
       vpc: props.vpc,
       loadBalancerDnsName: gatewayEcsCluster.loadBalancerDnsName,
     });
+
+    this.restApi = api.api;
 
     const distribution = new ApiCloudFrontDistribution(
       this,

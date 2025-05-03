@@ -8,7 +8,7 @@ import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
-import { RemovalPolicy, Tags } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, Tags } from 'aws-cdk-lib';
 import { NetworkStack } from '../stacks/network-stack';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 import { DeploymentContext } from '../shared/types';
@@ -129,7 +129,7 @@ export class GatewayEcsCluster extends Construct {
       shebang: '#!/bin/bash',
     });
 
-    userData.addCommands(`echo ECS_CLUSTER=${clusterName} >> /etc/ecs/ecs.config`);
+    userData.addCommands(`echo "ECS_CLUSTER=${clusterName}" >> /etc/ecs/ecs.config`);
 
     // Create the launch template
     const launchTemplate = new ec2.LaunchTemplate(this, 'ECSLaunchTemplate', {
@@ -138,7 +138,7 @@ export class GatewayEcsCluster extends Construct {
       machineImage: ec2.MachineImage.fromSsmParameter(
         '/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id'
       ),
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.SMALL),
       detailedMonitoring: true,
       requireImdsv2: true,
       blockDevices: [
@@ -216,8 +216,8 @@ export class GatewayEcsCluster extends Construct {
       },
       command: ['-listen=:80', '-text=Hello from Gateway'],
       cpu: 256, // 256 CPU units = 1/4 vCPU
-      memoryReservationMiB: 512, // soft limit
-      memoryLimitMiB: 768, // hard limit
+      memoryReservationMiB: 256, // soft limit
+      memoryLimitMiB: 512, // hard limit
       // Do not use it with hashicorp/http-echo as it doesn't include shell not curl
       // healthCheck: {
       //   command: ['CMD-SHELL', 'curl -f http://localhost:80/ || exit 1'],
@@ -237,8 +237,7 @@ export class GatewayEcsCluster extends Construct {
     const asg = new autoscaling.AutoScalingGroup(this, 'ECSAutoScalingGroup', {
       vpc: props.vpc,
       minCapacity: 1,
-      maxCapacity: 10,
-      desiredCapacity: 1, // Start with 1 instance
+      maxCapacity: 2,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
       },
@@ -248,6 +247,7 @@ export class GatewayEcsCluster extends Construct {
       }),
 
       allowAllOutbound: true,
+      updatePolicy: autoscaling.UpdatePolicy.rollingUpdate(),
       autoScalingGroupName: getEnvSpecificName('GatewayAutoScalingGroup'),
       azCapacityDistributionStrategy: autoscaling.CapacityDistributionStrategy.BALANCED_BEST_EFFORT,
       cooldown: Duration.minutes(3),
@@ -330,7 +330,7 @@ export class GatewayEcsCluster extends Construct {
     // ECS Service Auto Scaling (Task level auto scaling)
     const scalableTarget = service.autoScaleTaskCount({
       minCapacity: 1,
-      maxCapacity: 10,
+      maxCapacity: 4,
     });
 
     scalableTarget.scaleOnCpuUtilization('CpuScaling', {
@@ -353,8 +353,8 @@ export class GatewayEcsCluster extends Construct {
         period: Duration.minutes(1),
       }),
       scalingSteps: [
-        { upper: 100, change: 1 }, // Increase by 1 task if request count > 100
-        { upper: 200, change: 2 }, // Increase by 2 tasks if request count > 200
+        { lower: 100, change: 1 }, // Increase by 1 task if request count > 100
+        { lower: 200, change: 2 }, // Increase by 2 tasks if request count > 200
       ],
       evaluationPeriods: 2,
     });
@@ -365,8 +365,8 @@ export class GatewayEcsCluster extends Construct {
         period: Duration.minutes(1),
       }),
       scalingSteps: [
-        { upper: 2, change: 1 },
-        { upper: 3, change: 2 },
+        { lower: 2, change: 1 },
+        { lower: 3, change: 2 },
       ],
       evaluationPeriods: 2,
     });

@@ -1,4 +1,3 @@
-import { Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';

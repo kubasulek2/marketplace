@@ -1,13 +1,13 @@
-import { Stack, StackProps, Tags, Fn, Duration } from 'aws-cdk-lib';
+import { Stack, StackProps, Tags, Fn, Duration, RemovalPolicy } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as kms from 'aws-cdk-lib/aws-kms';
-import * as route53 from 'aws-cdk-lib/aws-route53';
 import { Construct } from 'constructs';
 import { AppEnvironment, DeploymentContext } from '../shared/types';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
+
 type CertMapping = {
   [key in AppEnvironment]: {
     api: string;
@@ -138,6 +138,8 @@ export class NetworkStack extends Stack {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
       objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
       bucketKeyEnabled: true,
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
     });
 
     // this is not executed because we import the key - left here for reference (done manually)
