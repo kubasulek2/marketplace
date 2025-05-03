@@ -36,20 +36,6 @@ export class GatewayEcsCluster extends Construct {
       allowAllOutbound: true,
     });
 
-    // Allow HTTP and HTTPS traffic from VPC CIDR
-    loadBalancerSecurityGroup.addIngressRule(
-      ec2.Peer.ipv4(props.vpc.vpcCidrBlock),
-      ec2.Port.tcp(80),
-      'Allow HTTP traffic from VPC'
-    );
-    loadBalancerSecurityGroup.addIngressRule(
-      ec2.Peer.ipv4(props.vpc.vpcCidrBlock),
-      ec2.Port.tcp(443),
-      'Allow HTTPS traffic from VPC'
-    );
-
-    // Allow HTTP and HTTPS traffic from API Gateway IP range (use AWS IP range for API Gateway)
-
     const apiGatewayCidrs = [
       '18.153.168.0/23',
       '3.123.14.0/24',
@@ -65,12 +51,20 @@ export class GatewayEcsCluster extends Construct {
       '3.72.33.128/25',
     ];
 
+    // Allow HTTP and HTTPS traffic from VPC CIDR
+    loadBalancerSecurityGroup.addIngressRule(
+      ec2.Peer.ipv4(props.vpc.vpcCidrBlock),
+      ec2.Port.tcp(80),
+      'Allow HTTP traffic from VPC'
+    );
+    loadBalancerSecurityGroup.addIngressRule(
+      ec2.Peer.ipv4(props.vpc.vpcCidrBlock),
+      ec2.Port.tcp(443),
+      'Allow HTTPS traffic from VPC'
+    );
+
+    // Allow HTTP and HTTPS traffic from API Gateway IP range (use AWS IP range for API Gateway)
     apiGatewayCidrs.forEach((cidr) => {
-      loadBalancerSecurityGroup.addIngressRule(
-        ec2.Peer.ipv4(cidr),
-        ec2.Port.tcp(80),
-        'Allow HTTP traffic from API Gateway'
-      );
       loadBalancerSecurityGroup.addIngressRule(
         ec2.Peer.ipv4(cidr),
         ec2.Port.tcp(443),
@@ -89,13 +83,8 @@ export class GatewayEcsCluster extends Construct {
     // Allow Load Balancer to communicate with ECS instances (ALB → ECS)
     ecsSecurityGroup.addIngressRule(
       ec2.Peer.securityGroupId(loadBalancerSecurityGroup.securityGroupId),
-      ec2.Port.tcp(80),
-      'Allow HTTP traffic from Load Balancer'
-    );
-    ecsSecurityGroup.addIngressRule(
-      ec2.Peer.securityGroupId(loadBalancerSecurityGroup.securityGroupId),
-      ec2.Port.tcp(443),
-      'Allow HTTPS traffic from Load Balancer'
+      ec2.Port.allTraffic(),
+      'Allow all traffic from Load Balancer'
     );
 
     // Create the IAM role for EC2 instances
@@ -226,16 +215,17 @@ export class GatewayEcsCluster extends Construct {
         HOST: '0.0.0.0',
       },
       command: ['-listen=:80', '-text=Hello from Gateway'],
-      // cpu: 256, // 256 CPU units = 1/4 vCPU
+      cpu: 256, // 256 CPU units = 1/4 vCPU
       memoryReservationMiB: 512, // soft limit
       memoryLimitMiB: 768, // hard limit
-      healthCheck: {
-        command: ['CMD-SHELL', 'curl -f http://localhost:80/ || exit 1'],
-        interval: Duration.seconds(30),
-        timeout: Duration.seconds(5),
-        retries: 3,
-        startPeriod: Duration.seconds(60),
-      },
+      // Do not use it with hashicorp/http-echo as it doesn't include shell not curl
+      // healthCheck: {
+      //   command: ['CMD-SHELL', 'curl -f http://localhost:80/ || exit 1'],
+      //   interval: Duration.seconds(30),
+      //   timeout: Duration.seconds(5),
+      //   retries: 3,
+      //   startPeriod: Duration.seconds(60),
+      // },
     });
 
     const cluster = new ecs.Cluster(this, clusterName, {
@@ -288,7 +278,6 @@ export class GatewayEcsCluster extends Construct {
         },
       ],
       availabilityZoneRebalancing: ecs.AvailabilityZoneRebalancing.ENABLED,
-      desiredCount: 2,
       enableExecuteCommand: true,
       healthCheckGracePeriod: Duration.seconds(60),
       maxHealthyPercent: 200,

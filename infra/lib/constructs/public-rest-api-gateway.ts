@@ -2,9 +2,9 @@ import { Construct } from 'constructs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import { AppEnvironment } from '../shared/types';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import { RemovalPolicy } from 'aws-cdk-lib';
+import * as logs from 'aws-cdk-lib/aws-logs';
 
 export interface PublicRestApiGatewayProps {
   environment: AppEnvironment;
@@ -38,7 +38,20 @@ export class PublicRestApiGateway extends Construct {
       description: `Public REST API Gateway for the ${props.environment} environment`,
       deployOptions: {
         stageName: props.environment,
+        loggingLevel: apigateway.MethodLoggingLevel.INFO,
+        dataTraceEnabled: true,
+        metricsEnabled: true,
+        accessLogDestination: new apigateway.LogGroupLogDestination(
+          new logs.LogGroup(this, 'AccessLogGroup', {
+            logGroupName: `/aws/apigateway/public-rest-api/${props.environment}/access`,
+            retention: 30,
+          })
+        ),
+        accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields(),
       },
+
+      cloudWatchRole: true,
+      cloudWatchRoleRemovalPolicy: RemovalPolicy.DESTROY,
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: apigateway.Cors.ALL_METHODS,
@@ -51,29 +64,6 @@ export class PublicRestApiGateway extends Construct {
         ],
         allowCredentials: true,
       },
-      policy: new iam.PolicyDocument({
-        statements: [
-          // Deny all requests NOT having the correct header
-          new iam.PolicyStatement({
-            effect: iam.Effect.DENY,
-            principals: [new iam.AnyPrincipal()],
-            actions: ['execute-api:Invoke'],
-            resources: ['execute-api:/*'],
-            conditions: {
-              StringNotEquals: {
-                'aws:RequestHeader/X-Origin-Secret': props.originSecret,
-              },
-            },
-          }),
-          // Allow requests that were not denied
-          new iam.PolicyStatement({
-            effect: iam.Effect.ALLOW,
-            principals: [new iam.AnyPrincipal()],
-            actions: ['execute-api:Invoke'],
-            resources: ['execute-api:/*'],
-          }),
-        ],
-      }),
     });
 
     // Add test endpoint
@@ -176,8 +166,18 @@ export class PublicRestApiGateway extends Construct {
           'integration.request.path.proxy': 'method.request.path.proxy',
         },
       },
+
       uri: `https://${props.loadBalancerDnsName}/{proxy}`,
     });
+
+    // Root integration (for /)
+    const rootIntegration = new apigateway.Integration({
+      type: apigateway.IntegrationType.HTTP_PROXY,
+      integrationHttpMethod: 'ANY',
+      uri: `https://${props.loadBalancerDnsName}/`,
+    });
+
+    this.api.root.addMethod('ANY', rootIntegration);
 
     const proxyResource = this.api.root.addResource('{proxy+}', {
       defaultIntegration: proxyIntegration,

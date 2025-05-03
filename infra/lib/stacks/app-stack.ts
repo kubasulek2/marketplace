@@ -1,4 +1,4 @@
-import { Stack, StackProps, Tags } from 'aws-cdk-lib';
+import { CfnOutput, Stack, StackProps, Tags } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as route53 from 'aws-cdk-lib/aws-route53';
@@ -14,6 +14,8 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import { v4 as uuid } from 'uuid';
 import { GatewayEcsCluster } from '../constructs/gateway-ecs-cluster';
 import * as kms from 'aws-cdk-lib/aws-kms';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+
 export interface AppStackProps extends StackProps {
   context: DeploymentContext;
   vpc: ec2.Vpc;
@@ -26,9 +28,18 @@ export interface AppStackProps extends StackProps {
 }
 
 export class AppStack extends Stack {
+  public readonly ssmOriginSecretName: string;
   constructor(scope: Construct, id: string, props: AppStackProps) {
     super(scope, id, props);
     const originSecret = uuid();
+
+    this.ssmOriginSecretName = `/${props.context.project}/${props.context.environment}/api/origin-secret`;
+
+    new ssm.StringParameter(this, 'SsmOriginSecret', {
+      parameterName: this.ssmOriginSecretName,
+      stringValue: originSecret,
+      description: 'Origin secret for the API',
+    });
 
     const gatewayEcsCluster = new GatewayEcsCluster(this, getEnvSpecificName('GatewayEcsCluster'), {
       vpc: props.vpc,
@@ -92,6 +103,12 @@ export class AppStack extends Stack {
     });
 
     invalidation.node.addDependency(distribution.distribution);
+
+    // Display the origin secret
+    new CfnOutput(this, 'OriginSecret', {
+      value: originSecret,
+      description: 'Origin secret for the API',
+    });
 
     // Add common tags to all resources in the stack
     Tags.of(this).add('Project', props.context.project);
