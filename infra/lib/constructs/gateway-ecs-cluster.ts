@@ -1,20 +1,21 @@
-import { Construct } from 'constructs';
+import { RemovalPolicy, Tags, Duration } from 'aws-cdk-lib';
+import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as kms from 'aws-cdk-lib/aws-kms';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
-import * as logs from 'aws-cdk-lib/aws-logs';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
-import { RemovalPolicy, Stack, Tags } from 'aws-cdk-lib';
-import { NetworkStack } from '../stacks/network-stack';
+import { Construct } from 'constructs';
+
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 import { DeploymentContext } from '../shared/types';
-import * as kms from 'aws-cdk-lib/aws-kms';
-import { Duration } from 'aws-cdk-lib';
-import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import { NetworkStack } from '../stacks/network-stack';
+
 interface GatewayEcsClusterProps {
   vpc: ec2.Vpc;
   certificate: acm.ICertificate;

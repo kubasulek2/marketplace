@@ -1,10 +1,10 @@
-import { Construct } from 'constructs';
-import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
-import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import { Duration } from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as s3 from 'aws-cdk-lib/aws-s3';
-import { Duration } from 'aws-cdk-lib';
+import { Construct } from 'constructs';
 
 export interface ApiCloudFrontDistributionProps {
   apiGateway: apigateway.RestApi;
@@ -45,6 +45,8 @@ export class ApiCloudFrontDistribution extends Construct {
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        responseHeadersPolicy:
+          cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS_AND_SECURITY_HEADERS,
       },
       additionalBehaviors: {
         '/products*': {
@@ -58,6 +60,7 @@ export class ApiCloudFrontDistribution extends Construct {
           cachePolicy: productsCachePolicy,
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          compress: true,
         },
       },
       domainNames: props.domainNames,

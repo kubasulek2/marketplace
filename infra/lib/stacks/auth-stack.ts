@@ -1,21 +1,110 @@
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { RestApi } from 'aws-cdk-lib/aws-apigateway';
-import { Construct } from 'constructs';
+import { Duration, Stack, StackProps } from 'aws-cdk-lib';
 import { DeploymentContext } from '../shared/types';
-import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import { Construct } from 'constructs';
+import {
+  AccountRecovery,
+  FeaturePlan,
+  OAuthScope,
+  UserPool,
+  UserPoolClient,
+  UserPoolDomain,
+  UserPoolEmail,
+  VerificationEmailStyle,
+} from 'aws-cdk-lib/aws-cognito';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as route53 from 'aws-cdk-lib/aws-route53';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
+import { NetworkStack } from './network-stack';
+import * as targets from 'aws-cdk-lib/aws-route53-targets';
+import { RemovalPolicy } from 'aws-cdk-lib';
 
 export interface AuthStackProps extends StackProps {
-  restApi: RestApi;
-  authDnsRecord: string;
+  authDomain: string;
+  authCertificate: acm.ICertificate;
   context: DeploymentContext;
 }
+
 export class AuthStack extends Stack {
+  public readonly userPool: UserPool;
   constructor(scope: Construct, id: string, props: AuthStackProps) {
     super(scope, id, props);
 
-    const userPool = new UserPool(this, 'UserPool', {
-      userPoolName: getEnvSpecificName('UserPool'),
+    const hostedZone = route53.HostedZone.fromLookup(this, 'Zone', {
+      domainName: NetworkStack.domain,
     });
+
+    this.userPool = new UserPool(this, 'UserPool', {
+      userPoolName: getEnvSpecificName('UserPool'),
+      selfSignUpEnabled: true,
+      signInAliases: { email: true },
+      autoVerify: { email: true },
+      userVerification: {
+        emailBody: 'Your verification code is {####}',
+        emailSubject: 'Marketplace - Your verification code',
+        emailStyle: VerificationEmailStyle.CODE,
+      },
+      accountRecovery: AccountRecovery.EMAIL_ONLY,
+      standardAttributes: {
+        email: { required: true, mutable: true },
+        preferredUsername: { required: true, mutable: true },
+      },
+      email: UserPoolEmail.withCognito(),
+      featurePlan: FeaturePlan.LITE,
+      // lambdaTriggers: {
+      //   postConfirmation: ,
+      // },
+    });
+
+    this.userPool.applyRemovalPolicy(RemovalPolicy.DESTROY);
+
+    const userPoolClient = new UserPoolClient(this, 'UserPoolClient', {
+      userPool: this.userPool,
+      userPoolClientName: getEnvSpecificName('UserPoolClient'),
+      oAuth: {
+        callbackUrls: [`https://${props.authDomain}/callback`],
+        logoutUrls: [
+          `https://${props.authDomain}/logout`,
+          `https://dev.${props.authDomain}/logout`,
+        ],
+        defaultRedirectUri: `https://${props.authDomain}/callback`,
+        scopes: [OAuthScope.EMAIL, OAuthScope.OPENID, OAuthScope.PROFILE],
+        flows: {
+          authorizationCodeGrant: true,
+          // remove this once we have a proper redirect uri
+          implicitCodeGrant: true,
+        },
+      },
+      accessTokenValidity: Duration.hours(6),
+      idTokenValidity: Duration.hours(6),
+      refreshTokenValidity: Duration.days(60),
+      authSessionValidity: Duration.minutes(10),
+      enableTokenRevocation: true,
+      // set true only for backend apps
+      // generateSecret: true,
+      preventUserExistenceErrors: true,
+      // only matters when not using hosted ui
+      authFlows: {
+        userPassword: true,
+        userSrp: true,
+      },
+    });
+
+    const userPoolDomain = new UserPoolDomain(this, 'UserPoolDomain', {
+      userPool: this.userPool,
+      customDomain: {
+        domainName: props.authDomain,
+        certificate: props.authCertificate,
+      },
+    });
+
+    const domainTarget = new targets.UserPoolDomainTarget(userPoolDomain);
+
+    const aliasRecord = new route53.ARecord(this, 'AuthDomainAliasRecord', {
+      zone: hostedZone,
+      recordName: props.authDomain,
+      target: route53.RecordTarget.fromAlias(domainTarget),
+    });
+
+    aliasRecord.node.addDependency(userPoolDomain);
   }
 }

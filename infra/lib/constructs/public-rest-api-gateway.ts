@@ -5,12 +5,15 @@ import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { RemovalPolicy } from 'aws-cdk-lib';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import { Duration } from 'aws-cdk-lib';
 
 export interface PublicRestApiGatewayProps {
   environment: AppEnvironment;
   originSecret: string;
   vpc: ec2.Vpc;
   loadBalancerDnsName: string;
+  userPool: UserPool;
 }
 
 export class PublicRestApiGateway extends Construct {
@@ -24,14 +27,24 @@ export class PublicRestApiGateway extends Construct {
       'method.response.header.Access-Control-Allow-Origin': true,
       'method.response.header.Access-Control-Allow-Methods': true,
       'method.response.header.Access-Control-Allow-Headers': true,
+      'method.response.header.Access-Control-Allow-Credentials': true,
     };
 
     const corsResponseHeaders = {
       'method.response.header.Access-Control-Allow-Origin': "'*'",
+      'method.response.header.Access-Control-Allow-Credentials': "'true'",
       'method.response.header.Access-Control-Allow-Methods': "'GET,POST,PUT,DELETE,OPTIONS,PATCH'",
       'method.response.header.Access-Control-Allow-Headers':
         "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
     };
+
+    // Authorizer
+    const authorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'Authorizer', {
+      cognitoUserPools: [props.userPool],
+      authorizerName: getEnvSpecificName('Authorizer'),
+      identitySource: 'method.request.header.Authorization',
+      resultsCacheTtl: Duration.minutes(5),
+    });
 
     this.api = new apigateway.RestApi(this, getEnvSpecificName('PublicRestApi'), {
       restApiName: `Public REST API - ${props.environment}`,
@@ -45,6 +58,7 @@ export class PublicRestApiGateway extends Construct {
           new logs.LogGroup(this, 'AccessLogGroup', {
             logGroupName: `/aws/apigateway/public-rest-api/${props.environment}/access`,
             retention: 30,
+            removalPolicy: RemovalPolicy.DESTROY,
           })
         ),
         accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields(),
@@ -63,6 +77,106 @@ export class PublicRestApiGateway extends Construct {
           'X-Amz-Security-Token',
         ],
         allowCredentials: true,
+      },
+    });
+
+    const proxyIntegration = new apigateway.Integration({
+      type: apigateway.IntegrationType.HTTP_PROXY,
+
+      integrationHttpMethod: 'ANY',
+      options: {
+        requestParameters: {
+          'integration.request.path.proxy': 'method.request.path.proxy',
+        },
+      },
+      uri: `https://${props.loadBalancerDnsName}/{proxy}`,
+    });
+
+    // Root integration (for /)
+    const rootIntegration = new apigateway.Integration({
+      type: apigateway.IntegrationType.HTTP_PROXY,
+      integrationHttpMethod: 'ANY',
+      uri: `https://${props.loadBalancerDnsName}/`,
+    });
+
+    // new apigateway.Method(this.api.root, 'OptionsMethodForRoot', {
+    //   httpMethod: 'OPTIONS',
+    //   resource: this.api.root,
+    //   integration: new apigateway.MockIntegration({
+    //     integrationResponses: [
+    //       {
+    //         statusCode: '200',
+    //         responseParameters: corsResponseHeaders,
+    //         responseTemplates: {
+    //           'application/json': '',
+    //         },
+    //       },
+    //     ],
+    //     passthroughBehavior: apigateway.PassthroughBehavior.NEVER,
+    //     requestTemplates: {
+    //       'application/json': '{"statusCode": 200}',
+    //     },
+    //   }),
+    //   options: {
+    //     authorizationType: apigateway.AuthorizationType.NONE,
+    //     methodResponses: [
+    //       {
+    //         statusCode: '200',
+    //         responseParameters: corsResponseParameters,
+    //         responseModels: {
+    //           'application/json': apigateway.Model.EMPTY_MODEL,
+    //         },
+    //       },
+    //     ],
+    //   },
+    // });
+
+    this.api.root.addMethod('ANY', rootIntegration, {
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer,
+    });
+
+    const proxyResource = this.api.root.addResource('{proxy+}', {
+      defaultIntegration: proxyIntegration,
+    });
+
+    // new apigateway.Method(proxyResource, 'OptionsMethodForProxy', {
+    //   httpMethod: 'OPTIONS',
+    //   resource: proxyResource,
+    //   integration: new apigateway.MockIntegration({
+    //     integrationResponses: [
+    //       {
+    //         statusCode: '200',
+    //         responseParameters: corsResponseHeaders,
+    //         responseTemplates: {
+    //           'application/json': '',
+    //         },
+    //       },
+    //     ],
+    //     passthroughBehavior: apigateway.PassthroughBehavior.NEVER,
+    //     requestTemplates: {
+    //       'application/json': '{"statusCode": 200}',
+    //     },
+    //   }),
+    //   options: {
+    //     authorizationType: apigateway.AuthorizationType.NONE,
+    //     methodResponses: [
+    //       {
+    //         statusCode: '200',
+    //         responseParameters: corsResponseParameters,
+    //         responseModels: {
+    //           'application/json': apigateway.Model.EMPTY_MODEL,
+    //         },
+    //       },
+    //     ],
+    //   },
+    // });
+
+    proxyResource.addMethod('ANY', proxyIntegration, {
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer,
+      requestParameters: {
+        'method.request.path.proxy': true,
       },
     });
 
@@ -154,39 +268,6 @@ export class PublicRestApiGateway extends Construct {
           timestamp: '$context.requestTime',
           requestId: '$context.requestId',
         }),
-      },
-    });
-
-    const proxyIntegration = new apigateway.Integration({
-      type: apigateway.IntegrationType.HTTP_PROXY,
-
-      integrationHttpMethod: 'ANY',
-      options: {
-        requestParameters: {
-          'integration.request.path.proxy': 'method.request.path.proxy',
-        },
-      },
-
-      uri: `https://${props.loadBalancerDnsName}/{proxy}`,
-    });
-
-    // Root integration (for /)
-    const rootIntegration = new apigateway.Integration({
-      type: apigateway.IntegrationType.HTTP_PROXY,
-      integrationHttpMethod: 'ANY',
-      uri: `https://${props.loadBalancerDnsName}/`,
-    });
-
-    this.api.root.addMethod('ANY', rootIntegration);
-
-    const proxyResource = this.api.root.addResource('{proxy+}', {
-      defaultIntegration: proxyIntegration,
-    });
-
-    proxyResource.addMethod('ANY', proxyIntegration, {
-      authorizationType: apigateway.AuthorizationType.NONE,
-      requestParameters: {
-        'method.request.path.proxy': true,
       },
     });
   }

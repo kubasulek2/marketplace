@@ -1,4 +1,4 @@
-import { CfnOutput, Stack, StackProps, Tags } from 'aws-cdk-lib';
+import { CfnOutput, Duration, Stack, StackProps, Tags } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as route53 from 'aws-cdk-lib/aws-route53';
@@ -16,16 +16,18 @@ import { GatewayEcsCluster } from '../constructs/gateway-ecs-cluster';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { RestApi } from 'aws-cdk-lib/aws-apigateway';
+import { UserPool } from 'aws-cdk-lib/aws-cognito';
 
 export interface AppStackProps extends StackProps {
   context: DeploymentContext;
   vpc: ec2.Vpc;
-  apiDnsRecord: string;
-  authDnsRecord: string;
+  apiDomain: string;
+  authDomain: string;
   apiCertificate: acm.ICertificate;
   regionalCertificate: acm.ICertificate;
   logsBucket: s3.Bucket;
   kmsKey: kms.IAlias;
+  userPool: UserPool;
 }
 
 export class AppStack extends Stack {
@@ -56,6 +58,7 @@ export class AppStack extends Stack {
       originSecret,
       vpc: props.vpc,
       loadBalancerDnsName: gatewayEcsCluster.loadBalancerDnsName,
+      userPool: props.userPool,
     });
 
     this.restApi = api.api;
@@ -66,7 +69,7 @@ export class AppStack extends Stack {
       {
         apiGateway: api.api,
         certificate: props.apiCertificate,
-        domainNames: [props.apiDnsRecord],
+        domainNames: [props.apiDomain],
         originSecret,
         logsBucket: props.logsBucket,
       }
@@ -81,7 +84,7 @@ export class AppStack extends Stack {
       comment: `API CloudFront Distribution ${props.context.environment}`,
       zone: hostedZone,
       target: route53.RecordTarget.fromAlias(new CloudFrontTarget(distribution.distribution)),
-      recordName: props.apiDnsRecord,
+      recordName: props.apiDomain,
       deleteExisting: true,
     });
 

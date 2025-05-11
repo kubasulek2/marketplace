@@ -13,19 +13,20 @@ const authStackName = getEnvSpecificName('AuthStack');
 
 const networkStack = new NetworkStack(app, networkStackName, environment);
 
+const authStack = new AuthStack(app, authStackName, {
+  ...environment,
+  authDomain: networkStack.authDomain,
+  authCertificate: networkStack.authCertificate,
+});
+
 const appStack = new AppStack(app, appStackName, {
   ...environment,
   vpc: networkStack.vpc,
   apiCertificate: networkStack.apiCertificate,
   regionalCertificate: networkStack.regionalCertificate,
-  apiDnsRecord: networkStack.apiDnsRecord,
-  authDnsRecord: networkStack.authDnsRecord,
+  apiDomain: networkStack.apiDomain,
+  authDomain: networkStack.authDomain,
   logsBucket: networkStack.logsBucket,
   kmsKey: networkStack.kmsKey,
-});
-
-const authStack = new AuthStack(app, authStackName, {
-  ...environment,
-  restApi: appStack.restApi,
-  authDnsRecord: networkStack.authDnsRecord,
+  userPool: authStack.userPool,
 });

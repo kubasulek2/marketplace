@@ -6,7 +6,9 @@
     ],
     "experimentalDecorators": true,
     "strictPropertyInitialization": false,
-    "noUnusedLocals": false
+    "noUnusedLocals": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
   },
   "exclude": [
     "node_modules",

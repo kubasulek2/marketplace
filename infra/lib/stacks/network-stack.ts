@@ -1,4 +1,12 @@
-import { Stack, StackProps, Tags, Fn, Duration, RemovalPolicy } from 'aws-cdk-lib';
+import {
+  Stack,
+  StackProps,
+  Tags,
+  Fn,
+  Duration,
+  RemovalPolicy,
+  aws_route53 as route53,
+} from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -37,9 +45,10 @@ export class NetworkStack extends Stack {
     },
   };
   public readonly vpc: ec2.Vpc;
-  public readonly apiDnsRecord: string;
-  public readonly authDnsRecord: string;
+  public readonly apiDomain: string;
+  public readonly authDomain: string;
   public readonly apiCertificate: acm.ICertificate;
+  public readonly authCertificate: acm.ICertificate;
   public readonly regionalCertificate: acm.ICertificate;
   public readonly kmsKey: kms.IAlias;
   public readonly logsBucket: s3.Bucket;
@@ -48,8 +57,8 @@ export class NetworkStack extends Stack {
 
     this.kmsKey = kms.Alias.fromAliasName(this, 'KMSKey', 'alias/marketplace-key');
 
-    this.apiDnsRecord = this.getDnsRecord('api', props.context.environment);
-    this.authDnsRecord = this.getDnsRecord('auth', props.context.environment);
+    this.apiDomain = this.getDomain('api', props.context.environment);
+    this.authDomain = this.getDomain('auth', props.context.environment);
 
     const vpcName = getEnvSpecificName('vpc');
 
@@ -117,6 +126,12 @@ export class NetworkStack extends Stack {
       this,
       getEnvSpecificName('regional-certificate'),
       this.certMapping[props.context.environment].regional
+    );
+
+    this.authCertificate = acm.Certificate.fromCertificateArn(
+      this,
+      getEnvSpecificName('auth-certificate'),
+      this.certMapping[props.context.environment].auth
     );
 
     // Logging bucket
@@ -223,12 +238,24 @@ export class NetworkStack extends Stack {
       trafficType: ec2.FlowLogTrafficType.ALL,
     });
 
+    if (props.context.environment === 'dev') {
+      const hostedZone = route53.HostedZone.fromLookup(this, 'Zone', {
+        domainName: NetworkStack.domain,
+      });
+
+      new route53.ARecord(this, 'DevSubdomainARecord', {
+        zone: hostedZone,
+        recordName: 'dev.kuba-bright.com',
+        target: route53.RecordTarget.fromIpAddresses('0.0.0.0'),
+      });
+    }
+
     // Add common tags to all resources in the stack
     Tags.of(this).add('Project', props.context.project);
     Tags.of(this).add('Environment', props.context.environment);
   }
 
-  private getDnsRecord(subdomain: string, environment: DeploymentContext['environment']) {
+  private getDomain(subdomain: string, environment: DeploymentContext['environment']) {
     return `${subdomain}.${environment === 'dev' ? 'dev.' : ''}${NetworkStack.domain}`;
   }
 }
