@@ -2,19 +2,19 @@ import {
   Stack,
   StackProps,
   Tags,
-  Fn,
   Duration,
   RemovalPolicy,
   aws_route53 as route53,
 } from 'aws-cdk-lib';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
-import { AppEnvironment, DeploymentContext } from '../shared/types';
+
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
+import { AppEnvironment, DeploymentContext } from '../shared/types';
 
 type CertMapping = {
   [key in AppEnvironment]: {

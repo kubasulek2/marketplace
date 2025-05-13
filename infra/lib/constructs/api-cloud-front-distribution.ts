@@ -12,6 +12,8 @@ export interface ApiCloudFrontDistributionProps {
   domainNames: string[];
   originSecret: string;
   logsBucket: s3.Bucket;
+  authDomain: string;
+  authClientId: string;
 }
 
 export class ApiCloudFrontDistribution extends Construct {
@@ -19,6 +21,29 @@ export class ApiCloudFrontDistribution extends Construct {
 
   constructor(scope: Construct, id: string, props: ApiCloudFrontDistributionProps) {
     super(scope, id);
+
+    const redirectUnauthenticatedFunction = new cloudfront.Function(
+      this,
+      'RedirectUnauthenticatedFunction',
+      {
+        code: cloudfront.FunctionCode.fromInline(`
+        function handler(event) {
+          if (!event.request.headers.authorization) {
+            return {
+              status: '302',
+              statusDescription: 'Found',
+              headers: {
+                location: { 
+                  value: 'https://${props.authDomain}/login?client_id=${props.authClientId}&response_type=token&scope=email+openid+profile&redirect_uri=https%3A%2F%2Fauth.dev.kuba-bright.com%2Fcallback',
+                },
+              },
+            };
+          }
+          return event;
+        }
+      `),
+      }
+    );
 
     const productsCachePolicy = new cloudfront.CachePolicy(this, 'ProductsCachePolicy', {
       cachePolicyName: 'ProductsCachePolicy',
@@ -47,6 +72,12 @@ export class ApiCloudFrontDistribution extends Construct {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         responseHeadersPolicy:
           cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS_AND_SECURITY_HEADERS,
+        functionAssociations: [
+          {
+            function: redirectUnauthenticatedFunction,
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          },
+        ],
       },
       additionalBehaviors: {
         '/products*': {

@@ -1,22 +1,23 @@
 import { CfnOutput, Duration, Stack, StackProps, Tags } from 'aws-cdk-lib';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import { RestApi } from 'aws-cdk-lib/aws-apigateway';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import * as route53 from 'aws-cdk-lib/aws-route53';
-import { NetworkStack } from '../stacks/network-stack';
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as cr from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
-import { DeploymentContext } from '../shared/types';
+import { v4 as uuid } from 'uuid';
+
+import { ApiCloudFrontDistribution } from '../constructs/api-cloud-front-distribution';
+import { GatewayEcsCluster } from '../constructs/gateway-ecs-cluster';
 import { PublicRestApiGateway } from '../constructs/public-rest-api-gateway';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
-import { ApiCloudFrontDistribution } from '../constructs/api-cloud-front-distribution';
-import * as cr from 'aws-cdk-lib/custom-resources';
-import * as s3 from 'aws-cdk-lib/aws-s3';
-import { v4 as uuid } from 'uuid';
-import { GatewayEcsCluster } from '../constructs/gateway-ecs-cluster';
-import * as kms from 'aws-cdk-lib/aws-kms';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
-import { RestApi } from 'aws-cdk-lib/aws-apigateway';
-import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import { DeploymentContext } from '../shared/types';
+import { NetworkStack } from '../stacks/network-stack';
 
 export interface AppStackProps extends StackProps {
   context: DeploymentContext;
@@ -28,6 +29,7 @@ export interface AppStackProps extends StackProps {
   logsBucket: s3.Bucket;
   kmsKey: kms.IAlias;
   userPool: UserPool;
+  authClientId: string;
 }
 
 export class AppStack extends Stack {
@@ -72,6 +74,8 @@ export class AppStack extends Stack {
         domainNames: [props.apiDomain],
         originSecret,
         logsBucket: props.logsBucket,
+        authDomain: props.authDomain,
+        authClientId: props.authClientId,
       }
     );
 

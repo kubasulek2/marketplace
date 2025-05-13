@@ -11,7 +11,11 @@
       "plugin": "@nx/jest/plugin",
       "options": {
         "targetName": "test"
-      }
+      },
+      "exclude": [
+        "services-e2e/**/*",
+        "gateway-e2e/**/*"
+      ]
     },
     {
       "plugin": "@nx/js/typescript",
@@ -26,6 +30,16 @@
           "watchDepsName": "watch-deps"
         }
       }
+    },
+    {
+      "plugin": "@nx/webpack/plugin",
+      "options": {
+        "buildTargetName": "build",
+        "serveTargetName": "serve",
+        "previewTargetName": "preview",
+        "buildDepsTargetName": "build-deps",
+        "watchDepsTargetName": "watch-deps"
+      }
     }
   ],
   "targetDefaults": {
@@ -33,6 +47,15 @@
       "dependsOn": [
         "^build"
       ]
+    },
+    "test": {
+      "dependsOn": [
+        "^build"
+      ]
     }
+  },
+  "workspaceLayout": {
+    "appsDir": "services",
+    "libsDir": "libs"
   }
 }

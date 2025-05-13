@@ -1,9 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
-import { NetworkStack } from '../lib/stacks/network-stack';
+
 import { getEnvironment } from '../lib/shared/environment';
 import { getEnvSpecificName } from '../lib/shared/getEnvSpecificName';
 import { AppStack } from '../lib/stacks/app-stack';
 import { AuthStack } from '../lib/stacks/auth-stack';
+import { NetworkStack } from '../lib/stacks/network-stack';
 
 const app = new cdk.App();
 const environment = getEnvironment();
@@ -29,4 +30,5 @@ const appStack = new AppStack(app, appStackName, {
   logsBucket: networkStack.logsBucket,
   kmsKey: networkStack.kmsKey,
   userPool: authStack.userPool,
+  authClientId: authStack.userPoolClientId,
 });

@@ -1,6 +1,5 @@
-import { Duration, Stack, StackProps } from 'aws-cdk-lib';
-import { DeploymentContext } from '../shared/types';
-import { Construct } from 'constructs';
+import { Duration, Stack, StackProps, RemovalPolicy } from 'aws-cdk-lib';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import {
   AccountRecovery,
   FeaturePlan,
@@ -11,12 +10,14 @@ import {
   UserPoolEmail,
   VerificationEmailStyle,
 } from 'aws-cdk-lib/aws-cognito';
-import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as route53 from 'aws-cdk-lib/aws-route53';
-import { getEnvSpecificName } from '../shared/getEnvSpecificName';
-import { NetworkStack } from './network-stack';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
-import { RemovalPolicy } from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+import { getEnvSpecificName } from '../shared/getEnvSpecificName';
+import { DeploymentContext } from '../shared/types';
+
+import { NetworkStack } from './network-stack';
 
 export interface AuthStackProps extends StackProps {
   authDomain: string;
@@ -26,6 +27,7 @@ export interface AuthStackProps extends StackProps {
 
 export class AuthStack extends Stack {
   public readonly userPool: UserPool;
+  public readonly userPoolClientId: string;
   constructor(scope: Construct, id: string, props: AuthStackProps) {
     super(scope, id, props);
 
@@ -89,6 +91,8 @@ export class AuthStack extends Stack {
       },
     });
 
+    this.userPoolClientId = userPoolClient.userPoolClientId;
+
     const userPoolDomain = new UserPoolDomain(this, 'UserPoolDomain', {
       userPool: this.userPool,
       customDomain: {
@@ -96,6 +100,8 @@ export class AuthStack extends Stack {
         certificate: props.authCertificate,
       },
     });
+
+    userPoolDomain.applyRemovalPolicy(RemovalPolicy.DESTROY);
 
     const domainTarget = new targets.UserPoolDomainTarget(userPoolDomain);
 
