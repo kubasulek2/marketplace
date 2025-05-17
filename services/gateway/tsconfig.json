@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "experimentalDecorators": true,
+    "strictPropertyInitialization": false,
+    "noUnusedLocals": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}

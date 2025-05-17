@@ -1,0 +1,11 @@
+{
+  "name": "@marketplace/gateway",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "typescript": "^5.3.3"
+  },
+  "scripts": {
+    "build": "tsc"
+  }
+}

@@ -4,6 +4,12 @@
   "references": [
     {
       "path": "./infra"
-    }
+    },
+    {
+      "path": "./services/gateway"
+    },
+    {
+      "path": "./services/products"
+    },
   ]
 }

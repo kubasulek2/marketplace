@@ -12,21 +12,21 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 
-import { getEnvSpecificName } from '../shared/getEnvSpecificName';
-import { DeploymentContext } from '../shared/types';
-import { NetworkStack } from '../stacks/network-stack';
+import { getEnvSpecificName } from '../../shared/getEnvSpecificName';
+import { DeploymentContext } from '../../shared/types';
+import { NetworkStack } from '../../stacks/network-stack';
 
-interface GatewayEcsClusterProps {
+interface GatewayEcsServiceProps {
   vpc: ec2.Vpc;
   certificate: acm.ICertificate;
   context: DeploymentContext;
   kmsKey: kms.IAlias;
 }
 
-export class GatewayEcsCluster extends Construct {
+export class GatewayEcsService extends Construct {
   public readonly loadBalancerDnsName = `alb1.${NetworkStack.domain}`;
 
-  constructor(scope: Construct, id: string, props: GatewayEcsClusterProps) {
+  constructor(scope: Construct, id: string, props: GatewayEcsServiceProps) {
     super(scope, id);
     const clusterName = getEnvSpecificName('gateway-ecs-cluster');
 
