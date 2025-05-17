@@ -71,15 +71,20 @@ export class NetworkStack extends Stack {
       // Define subnet configuration
       subnetConfiguration: [
         {
-          name: 'Public',
+          name: 'Public1',
           subnetType: ec2.SubnetType.PUBLIC,
           cidrMask: 24,
         },
         {
-          name: 'Private',
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+          name: 'Public2',
+          subnetType: ec2.SubnetType.PUBLIC,
           cidrMask: 24,
         },
+        // {
+        //   name: 'Private',
+        //   subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        //   cidrMask: 24,
+        // },
       ],
 
       // Enable DNS hostnames and DNS support
@@ -97,7 +102,7 @@ export class NetworkStack extends Stack {
       },
 
       // Create a NAT Gateway for private subnets
-      natGateways: 1, // 2 for high availability
+      // natGateways: 1, // 2 for high availability
     });
 
     // Add tags to all subnets

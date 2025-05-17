@@ -239,9 +239,9 @@ export class GatewayEcsCluster extends Construct {
       vpc: props.vpc,
       minCapacity: 1,
       maxCapacity: 2,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      // vpcSubnets: {
+      //   subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      // },
       launchTemplate: launchTemplate,
       healthChecks: autoscaling.HealthChecks.ec2({
         gracePeriod: Duration.seconds(60),
