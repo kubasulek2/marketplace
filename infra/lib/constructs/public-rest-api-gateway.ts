@@ -1,12 +1,12 @@
-import { Construct } from 'constructs';
+import { RemovalPolicy, Duration } from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
-import { AppEnvironment } from '../shared/types';
-import { getEnvSpecificName } from '../shared/getEnvSpecificName';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import { RemovalPolicy } from 'aws-cdk-lib';
-import * as logs from 'aws-cdk-lib/aws-logs';
 import { UserPool } from 'aws-cdk-lib/aws-cognito';
-import { Duration } from 'aws-cdk-lib';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import { Construct } from 'constructs';
+
+import { getEnvSpecificName } from '../shared/getEnvSpecificName';
+import { AppEnvironment } from '../shared/types';
 
 export interface PublicRestApiGatewayProps {
   environment: AppEnvironment;

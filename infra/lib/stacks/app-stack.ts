@@ -13,8 +13,8 @@ import { Construct } from 'constructs';
 import { v4 as uuid } from 'uuid';
 
 import { ApiCloudFrontDistribution } from '../constructs/api-cloud-front-distribution';
-import { GatewayEcsCluster } from '../constructs/gateway-ecs-cluster';
 import { PublicRestApiGateway } from '../constructs/public-rest-api-gateway';
+import { GatewayEcsService } from '../constructs/services/gateway-ecs-service';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 import { DeploymentContext } from '../shared/types';
 import { NetworkStack } from '../stacks/network-stack';
@@ -48,7 +48,7 @@ export class AppStack extends Stack {
       description: 'Origin secret for the API',
     });
 
-    const gatewayEcsCluster = new GatewayEcsCluster(this, getEnvSpecificName('GatewayEcsCluster'), {
+    const gatewayEcsCluster = new GatewayEcsService(this, getEnvSpecificName('GatewayEcsCluster'), {
       vpc: props.vpc,
       certificate: props.regionalCertificate,
       kmsKey: props.kmsKey,
