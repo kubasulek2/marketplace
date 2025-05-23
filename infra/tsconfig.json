@@ -8,10 +8,15 @@
     "strictPropertyInitialization": false,
     "noUnusedLocals": false,
     "module": "NodeNext",
-    "moduleResolution": "NodeNext"
+    "moduleResolution": "NodeNext",
   },
   "exclude": [
     "node_modules",
     "cdk.out"
+  ],
+  "references": [
+    {
+      "path": "../libs/env-parser"
+    }
   ]
 }

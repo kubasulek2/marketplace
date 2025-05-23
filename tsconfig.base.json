@@ -11,6 +11,11 @@
     "lib": [
       "es2022"
     ],
+    "paths": {
+      "@marketplace/env-parser": [
+        "./libs/env-parser/src"
+      ]
+    },
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "noEmitOnError": true,

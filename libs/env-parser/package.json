@@ -1,0 +1,12 @@
+{
+  "name": "@marketplace/env-parser",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src --ext .ts"
+  },
+  "license": "MIT",
+  "private": true
+}

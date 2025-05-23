@@ -1,5 +1,4 @@
 {
-  "extends": "./tsconfig.base.json",
   "files": [],
   "references": [
     {
@@ -11,5 +10,8 @@
     {
       "path": "./services/products"
     },
+    {
+      "path": "./libs/env-parser"
+    }
   ]
 }
