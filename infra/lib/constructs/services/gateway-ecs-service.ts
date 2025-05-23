@@ -21,10 +21,12 @@ interface GatewayEcsServiceProps {
   certificate: acm.ICertificate;
   config: AppConfig;
   kmsKey: kms.IAlias;
+  originSecret: string;
 }
 
 export class GatewayEcsService extends Construct {
   public readonly loadBalancerDnsName = `alb1.${NetworkStack.domain}`;
+  public readonly alb: elbv2.ApplicationLoadBalancer;
 
   constructor(scope: Construct, id: string, props: GatewayEcsServiceProps) {
     super(scope, id);
@@ -37,41 +39,17 @@ export class GatewayEcsService extends Construct {
       allowAllOutbound: true,
     });
 
-    const apiGatewayCidrs = [
-      '18.153.168.0/23',
-      '3.123.14.0/24',
-      '3.123.15.0/25',
-      '3.127.74.0/23',
-      '3.66.172.0/24',
-      '3.70.195.128/25',
-      '3.70.195.64/26',
-      '3.70.211.0/25',
-      '3.71.104.0/24',
-      '3.71.120.0/22',
-      '3.72.168.0/24',
-      '3.72.33.128/25',
-    ];
-
     // Allow HTTP and HTTPS traffic from VPC CIDR
     loadBalancerSecurityGroup.addIngressRule(
-      ec2.Peer.ipv4(props.vpc.vpcCidrBlock),
+      ec2.Peer.anyIpv4(),
       ec2.Port.tcp(80),
       'Allow HTTP traffic from VPC'
     );
     loadBalancerSecurityGroup.addIngressRule(
-      ec2.Peer.ipv4(props.vpc.vpcCidrBlock),
+      ec2.Peer.anyIpv4(),
       ec2.Port.tcp(443),
       'Allow HTTPS traffic from VPC'
     );
-
-    // Allow HTTP and HTTPS traffic from API Gateway IP range (use AWS IP range for API Gateway)
-    apiGatewayCidrs.forEach((cidr) => {
-      loadBalancerSecurityGroup.addIngressRule(
-        ec2.Peer.ipv4(cidr),
-        ec2.Port.tcp(443),
-        'Allow HTTPS traffic from API Gateway'
-      );
-    });
 
     // Create a security group for the ECS instances
     const ecsSecurityGroup = new ec2.SecurityGroup(this, 'ECSSecurityGroup', {
@@ -139,7 +117,10 @@ export class GatewayEcsService extends Construct {
       machineImage: ec2.MachineImage.fromSsmParameter(
         '/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id'
       ),
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.SMALL),
+      instanceType: ec2.InstanceType.of(
+        ec2.InstanceClass.T3,
+        props.config.performanceMode ? ec2.InstanceSize.MEDIUM : ec2.InstanceSize.MICRO
+      ),
       detailedMonitoring: true,
       requireImdsv2: true,
       blockDevices: [
@@ -237,11 +218,13 @@ export class GatewayEcsService extends Construct {
     // Create Auto Scaling Group (ASG) for ECS instances
     const asg = new autoscaling.AutoScalingGroup(this, 'ECSAutoScalingGroup', {
       vpc: props.vpc,
-      minCapacity: 1,
-      maxCapacity: 2,
-      // vpcSubnets: {
-      //   subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      // },
+      minCapacity: props.config.performanceMode ? 2 : 1,
+      maxCapacity: props.config.performanceMode ? 8 : 2,
+      vpcSubnets: props.config.usePrivateNetworks
+        ? {
+            subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+          }
+        : undefined,
       launchTemplate: launchTemplate,
       healthChecks: autoscaling.HealthChecks.ec2({
         gracePeriod: Duration.seconds(60),
@@ -286,7 +269,7 @@ export class GatewayEcsService extends Construct {
       serviceName: getEnvSpecificName('GatewayService'),
     });
 
-    const loadBalancer = new elbv2.ApplicationLoadBalancer(this, getEnvSpecificName('GatewayALB'), {
+    this.alb = new elbv2.ApplicationLoadBalancer(this, getEnvSpecificName('GatewayALB'), {
       vpc: props.vpc,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PUBLIC,
@@ -303,17 +286,22 @@ export class GatewayEcsService extends Construct {
     new route53.ARecord(this, getEnvSpecificName('AlbPrivateDnsRecord'), {
       zone: hostedZone,
       recordName: 'alb1',
-      target: route53.RecordTarget.fromAlias(new targets.LoadBalancerTarget(loadBalancer)),
+      target: route53.RecordTarget.fromAlias(new targets.LoadBalancerTarget(this.alb)),
     });
 
-    const listener = loadBalancer.addListener(getEnvSpecificName('GatewayEcsClusterALBListener'), {
+    const listener = this.alb.addListener(getEnvSpecificName('GatewayEcsClusterALBListener'), {
       port: 443,
       certificates: [props.certificate],
+      defaultAction: elbv2.ListenerAction.fixedResponse(401, {
+        contentType: 'application/json',
+        messageBody: JSON.stringify({ message: 'Unauthorized' }),
+      }),
     });
 
-    const targetGroup = listener.addTargets('TargetGroup', {
+    const targetGroup = new elbv2.ApplicationTargetGroup(this, 'TargetGroup', {
       targets: [service],
       port: 80,
+      vpc: props.vpc,
       targetGroupName: getEnvSpecificName('gtg'),
       deregistrationDelay: Duration.seconds(30),
       protocol: elbv2.ApplicationProtocol.HTTP,
@@ -328,10 +316,16 @@ export class GatewayEcsService extends Construct {
       },
     });
 
+    listener.addAction('AllowWithSecretHeader', {
+      priority: 1,
+      conditions: [elbv2.ListenerCondition.httpHeader('X-Origin-Secret', [props.originSecret])],
+      action: elbv2.ListenerAction.forward([targetGroup]),
+    });
+
     // ECS Service Auto Scaling (Task level auto scaling)
     const scalableTarget = service.autoScaleTaskCount({
-      minCapacity: 1,
-      maxCapacity: 4,
+      minCapacity: props.config.performanceMode ? 2 : 1,
+      maxCapacity: props.config.performanceMode ? 8 : 4,
     });
 
     scalableTarget.scaleOnCpuUtilization('CpuScaling', {
@@ -350,7 +344,7 @@ export class GatewayEcsService extends Construct {
 
     // Scale based on Request Count
     scalableTarget.scaleOnMetric('ScaleOnRequestCount', {
-      metric: loadBalancer.metrics.requestCount({
+      metric: this.alb.metrics.requestCount({
         period: Duration.minutes(1),
       }),
       scalingSteps: [
@@ -362,7 +356,7 @@ export class GatewayEcsService extends Construct {
 
     // Optionally, scale based on Target Response Time
     scalableTarget.scaleOnMetric('ScaleOnResponseTime', {
-      metric: loadBalancer.metrics.targetResponseTime({
+      metric: this.alb.metrics.targetResponseTime({
         period: Duration.minutes(1),
       }),
       scalingSteps: [
@@ -389,7 +383,7 @@ export class GatewayEcsService extends Construct {
         metricName: 'UnHealthyHostCount',
         dimensionsMap: {
           TargetGroup: targetGroup.targetGroupFullName,
-          LoadBalancer: loadBalancer.loadBalancerFullName,
+          LoadBalancer: this.alb.loadBalancerFullName,
         },
         statistic: 'Maximum',
         period: Duration.minutes(5),

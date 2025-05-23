@@ -13,7 +13,6 @@ import { Construct } from 'constructs';
 import { v4 as uuid } from 'uuid';
 
 import { ApiCloudFrontDistribution } from '../constructs/api-cloud-front-distribution';
-import { PublicRestApiGateway } from '../constructs/public-rest-api-gateway';
 import { GatewayEcsService } from '../constructs/services/gateway-ecs-service';
 import { AppConfig, StackConfig } from '../shared/config';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
@@ -35,7 +34,6 @@ export interface AppStackProps extends StackProps {
 
 export class AppStack extends Stack {
   public readonly ssmOriginSecretName: string;
-  public readonly restApi: RestApi;
 
   constructor(scope: Construct, id: string, props: AppStackProps) {
     super(scope, id, props);
@@ -54,23 +52,14 @@ export class AppStack extends Stack {
       certificate: props.regionalCertificate,
       kmsKey: props.kmsKey,
       config: props.config,
-    });
-
-    const api = new PublicRestApiGateway(this, getEnvSpecificName('PublicApi'), {
-      environment: props.config.deployEnv,
       originSecret,
-      vpc: props.vpc,
-      loadBalancerDnsName: gatewayEcsCluster.loadBalancerDnsName,
-      userPool: props.userPool,
     });
-
-    this.restApi = api.api;
 
     const distribution = new ApiCloudFrontDistribution(
       this,
       getEnvSpecificName('ApiDistribution'),
       {
-        apiGateway: api.api,
+        loadBalancerDomain: gatewayEcsCluster.loadBalancerDnsName,
         certificate: props.apiCertificate,
         domainNames: [props.apiDomain],
         originSecret,

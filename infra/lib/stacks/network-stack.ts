@@ -71,13 +71,7 @@ export class NetworkStack extends Stack {
             cidrMask: 24,
           },
         ]
-      : [
-          {
-            name: 'Public2',
-            subnetType: ec2.SubnetType.PUBLIC,
-            cidrMask: 24,
-          },
-        ];
+      : [];
 
     // Create VPC with 2 public and 2 private subnets
     this.vpc = new ec2.Vpc(this, vpcName, {

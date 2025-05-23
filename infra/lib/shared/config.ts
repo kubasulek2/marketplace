@@ -10,6 +10,7 @@ const appConfigSchema = z.object({
   usePrivateNetworks: z.boolean(),
   deployEnv: z.enum(['dev', 'prod']),
   project: z.string(),
+  performanceMode: z.boolean(),
 });
 
 const stackConfigSchema = z.object({
@@ -27,9 +28,9 @@ const getAppConfig = (): AppConfig => {
   const { readOptionalBool, readRequiredString } = createEnvReader(process.env);
 
   return appConfigSchema.parse({
-    useAuth: readOptionalBool('USE_AUTH', false),
-    usePrivateNetworks: readOptionalBool('USE_PRIVATE_NETWORKS', false),
-
+    useAuth: readOptionalBool('USE_AUTH', true),
+    usePrivateNetworks: readOptionalBool('USE_PRIVATE_NETWORKS', true),
+    performanceMode: readOptionalBool('PERFORMANCE_MODE', true),
     deployEnv: readRequiredString('DEPLOY_ENV'),
     project: 'marketplace',
   });

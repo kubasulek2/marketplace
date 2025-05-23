@@ -1,5 +1,4 @@
 import { Duration } from 'aws-cdk-lib';
-import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
@@ -7,13 +6,13 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
 export interface ApiCloudFrontDistributionProps {
-  apiGateway: apigateway.RestApi;
+  loadBalancerDomain: string;
   certificate: acm.ICertificate;
   domainNames: string[];
-  originSecret: string;
   logsBucket: s3.Bucket;
   authDomain: string;
   authClientId?: string;
+  originSecret: string;
 }
 
 export class ApiCloudFrontDistribution extends Construct {
@@ -63,13 +62,13 @@ export class ApiCloudFrontDistribution extends Construct {
 
     this.distribution = new cloudfront.Distribution(this, 'ApiDistribution', {
       defaultBehavior: {
-        origin: new origins.RestApiOrigin(props.apiGateway, {
-          originPath: `/${props.apiGateway.deploymentStage.stageName}`,
+        origin: new origins.HttpOrigin(props.loadBalancerDomain, {
+          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
           customHeaders: {
             'X-Origin-Secret': props.originSecret,
           },
         }),
-        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -86,15 +85,15 @@ export class ApiCloudFrontDistribution extends Construct {
       },
       additionalBehaviors: {
         '/products*': {
-          origin: new origins.RestApiOrigin(props.apiGateway, {
-            originPath: `/${props.apiGateway.deploymentStage.stageName}`,
+          origin: new origins.HttpOrigin(props.loadBalancerDomain, {
+            protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
             customHeaders: {
               'X-Origin-Secret': props.originSecret,
             },
           }),
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: productsCachePolicy,
-          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           compress: true,
         },
