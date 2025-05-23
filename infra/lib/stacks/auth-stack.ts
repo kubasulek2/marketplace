@@ -14,15 +14,16 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 
+import { AppConfig, StackConfig } from '../shared/config';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
-import { DeploymentContext } from '../shared/types';
 
 import { NetworkStack } from './network-stack';
 
 export interface AuthStackProps extends StackProps {
+  config: AppConfig;
+  env: StackConfig['env'];
   authDomain: string;
   authCertificate: acm.ICertificate;
-  context: DeploymentContext;
 }
 
 export class AuthStack extends Stack {

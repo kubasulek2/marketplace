@@ -1,27 +1,35 @@
 import * as cdk from 'aws-cdk-lib';
 
-import { getEnvironment } from '../lib/shared/environment';
+import { appConfig, stackConfig } from '../lib/shared/config';
 import { getEnvSpecificName } from '../lib/shared/getEnvSpecificName';
 import { AppStack } from '../lib/stacks/app-stack';
 import { AuthStack } from '../lib/stacks/auth-stack';
 import { NetworkStack } from '../lib/stacks/network-stack';
 
 const app = new cdk.App();
-const environment = getEnvironment();
 const networkStackName = getEnvSpecificName('NetworkStack');
 const appStackName = getEnvSpecificName('AppStack');
 const authStackName = getEnvSpecificName('AuthStack');
 
-const networkStack = new NetworkStack(app, networkStackName, environment);
-
-const authStack = new AuthStack(app, authStackName, {
-  ...environment,
-  authDomain: networkStack.authDomain,
-  authCertificate: networkStack.authCertificate,
+const networkStack = new NetworkStack(app, networkStackName, {
+  config: appConfig,
+  env: stackConfig['env'],
 });
 
+let authStack: AuthStack | undefined;
+
+if (appConfig.useAuth) {
+  authStack = new AuthStack(app, authStackName, {
+    config: appConfig,
+    env: stackConfig.env,
+    authDomain: networkStack.authDomain,
+    authCertificate: networkStack.authCertificate,
+  });
+}
+
 const appStack = new AppStack(app, appStackName, {
-  ...environment,
+  config: appConfig,
+  env: stackConfig.env,
   vpc: networkStack.vpc,
   apiCertificate: networkStack.apiCertificate,
   regionalCertificate: networkStack.regionalCertificate,
@@ -29,6 +37,6 @@ const appStack = new AppStack(app, appStackName, {
   authDomain: networkStack.authDomain,
   logsBucket: networkStack.logsBucket,
   kmsKey: networkStack.kmsKey,
-  userPool: authStack.userPool,
-  authClientId: authStack.userPoolClientId,
+  userPool: authStack?.userPool,
+  authClientId: authStack?.userPoolClientId,
 });

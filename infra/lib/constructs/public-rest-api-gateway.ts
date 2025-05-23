@@ -5,15 +5,15 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
+import { AppConfig } from '../shared/config';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
-import { AppEnvironment } from '../shared/types';
 
 export interface PublicRestApiGatewayProps {
-  environment: AppEnvironment;
+  environment: AppConfig['deployEnv'];
   originSecret: string;
   vpc: ec2.Vpc;
   loadBalancerDnsName: string;
-  userPool: UserPool;
+  userPool?: UserPool;
 }
 
 export class PublicRestApiGateway extends Construct {
@@ -39,12 +39,15 @@ export class PublicRestApiGateway extends Construct {
     };
 
     // Authorizer
-    const authorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'Authorizer', {
-      cognitoUserPools: [props.userPool],
-      authorizerName: getEnvSpecificName('Authorizer'),
-      identitySource: 'method.request.header.Authorization',
-      resultsCacheTtl: Duration.minutes(5),
-    });
+    let authorizer: apigateway.CognitoUserPoolsAuthorizer | undefined;
+    if (props.userPool) {
+      authorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'Authorizer', {
+        cognitoUserPools: [props.userPool],
+        authorizerName: getEnvSpecificName('Authorizer'),
+        identitySource: 'method.request.header.Authorization',
+        resultsCacheTtl: Duration.minutes(5),
+      });
+    }
 
     this.api = new apigateway.RestApi(this, getEnvSpecificName('PublicRestApi'), {
       restApiName: `Public REST API - ${props.environment}`,

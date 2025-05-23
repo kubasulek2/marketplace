@@ -15,12 +15,13 @@ import { v4 as uuid } from 'uuid';
 import { ApiCloudFrontDistribution } from '../constructs/api-cloud-front-distribution';
 import { PublicRestApiGateway } from '../constructs/public-rest-api-gateway';
 import { GatewayEcsService } from '../constructs/services/gateway-ecs-service';
+import { AppConfig, StackConfig } from '../shared/config';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
-import { DeploymentContext } from '../shared/types';
 import { NetworkStack } from '../stacks/network-stack';
 
 export interface AppStackProps extends StackProps {
-  context: DeploymentContext;
+  config: AppConfig;
+  env: StackConfig['env'];
   vpc: ec2.Vpc;
   apiDomain: string;
   authDomain: string;
@@ -28,8 +29,8 @@ export interface AppStackProps extends StackProps {
   regionalCertificate: acm.ICertificate;
   logsBucket: s3.Bucket;
   kmsKey: kms.IAlias;
-  userPool: UserPool;
-  authClientId: string;
+  userPool?: UserPool;
+  authClientId?: string;
 }
 
 export class AppStack extends Stack {
@@ -40,7 +41,7 @@ export class AppStack extends Stack {
     super(scope, id, props);
     const originSecret = uuid();
 
-    this.ssmOriginSecretName = `/${props.context.project}/${props.context.environment}/api/origin-secret`;
+    this.ssmOriginSecretName = `/${props.config.project}/${props.config.deployEnv}/api/origin-secret`;
 
     new ssm.StringParameter(this, 'SsmOriginSecret', {
       parameterName: this.ssmOriginSecretName,
@@ -52,11 +53,11 @@ export class AppStack extends Stack {
       vpc: props.vpc,
       certificate: props.regionalCertificate,
       kmsKey: props.kmsKey,
-      context: props.context,
+      config: props.config,
     });
 
     const api = new PublicRestApiGateway(this, getEnvSpecificName('PublicApi'), {
-      environment: props.context.environment,
+      environment: props.config.deployEnv,
       originSecret,
       vpc: props.vpc,
       loadBalancerDnsName: gatewayEcsCluster.loadBalancerDnsName,
@@ -85,7 +86,7 @@ export class AppStack extends Stack {
     });
 
     new route53.ARecord(this, 'ApiRecord', {
-      comment: `API CloudFront Distribution ${props.context.environment}`,
+      comment: `API CloudFront Distribution ${props.config.deployEnv}`,
       zone: hostedZone,
       target: route53.RecordTarget.fromAlias(new CloudFrontTarget(distribution.distribution)),
       recordName: props.apiDomain,
@@ -123,7 +124,7 @@ export class AppStack extends Stack {
     });
 
     // Add common tags to all resources in the stack
-    Tags.of(this).add('Project', props.context.project);
-    Tags.of(this).add('Environment', props.context.environment);
+    Tags.of(this).add('Project', props.config.project);
+    Tags.of(this).add('Environment', props.config.deployEnv);
   }
 }

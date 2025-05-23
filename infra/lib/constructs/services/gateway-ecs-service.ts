@@ -12,14 +12,14 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 
+import { AppConfig } from '../../shared/config';
 import { getEnvSpecificName } from '../../shared/getEnvSpecificName';
-import { DeploymentContext } from '../../shared/types';
 import { NetworkStack } from '../../stacks/network-stack';
 
 interface GatewayEcsServiceProps {
   vpc: ec2.Vpc;
   certificate: acm.ICertificate;
-  context: DeploymentContext;
+  config: AppConfig;
   kmsKey: kms.IAlias;
 }
 
@@ -400,7 +400,7 @@ export class GatewayEcsService extends Construct {
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
     });
 
-    Tags.of(this).add('Environment', props.context.environment);
-    Tags.of(this).add('Project', props.context.project);
+    Tags.of(this).add('Environment', props.config.deployEnv);
+    Tags.of(this).add('Project', props.config.project);
   }
 }

@@ -1969,8 +1969,6 @@ __metadata:
 "@marketplace/gateway@workspace:services/gateway":
   version: 0.0.0-use.local
   resolution: "@marketplace/gateway@workspace:services/gateway"
-  dependencies:
-    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -1995,7 +1993,6 @@ __metadata:
     nodemon: "npm:^3.0.3"
     nx: "npm:20.8.0"
     ts-jest: "npm:^29.1.2"
-    typescript: "npm:^5.3.3"
     uuid: "npm:^11.1.0"
     zod: "npm:^3.25.23"
   languageName: unknown
@@ -2004,8 +2001,6 @@ __metadata:
 "@marketplace/products@workspace:services/products":
   version: 0.0.0-use.local
   resolution: "@marketplace/products@workspace:services/products"
-  dependencies:
-    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -9387,7 +9382,7 @@ __metadata:
     ts-node: "npm:^10.9.2"
     tsconfig-paths: "npm:^4.2.0"
     tslib: "npm:^2.3.0"
-    typescript: "npm:~5.7.2"
+    typescript: "npm:^5.7.2"
     webpack-cli: "npm:^5.1.4"
   languageName: unknown
   linkType: soft
@@ -13253,7 +13248,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.3.3":
+"typescript@npm:^5.7.2":
   version: 5.8.3
   resolution: "typescript@npm:5.8.3"
   bin:
@@ -13273,7 +13268,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A^5.3.3#optional!builtin<compat/typescript>":
+"typescript@patch:typescript@npm%3A^5.7.2#optional!builtin<compat/typescript>":
   version: 5.8.3
   resolution: "typescript@patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=5786d5"
   bin:

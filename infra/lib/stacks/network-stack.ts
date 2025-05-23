@@ -13,20 +13,21 @@ import * as kms from 'aws-cdk-lib/aws-kms';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
+import { AppConfig, StackConfig } from '../shared/config';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
-import { AppEnvironment, DeploymentContext } from '../shared/types';
 
 type CertMapping = {
-  [key in AppEnvironment]: {
+  [key in AppConfig['deployEnv']]: {
     api: string;
     auth: string;
     regional: string;
   };
 };
 
-export interface NetworkStackProps extends StackProps {
-  context: DeploymentContext;
-}
+export type NetworkStackProps = StackProps & {
+  config: AppConfig;
+  env: StackConfig['env'];
+};
 
 export class NetworkStack extends Stack {
   public static readonly domain = 'kuba-bright.com';
@@ -57,10 +58,26 @@ export class NetworkStack extends Stack {
 
     this.kmsKey = kms.Alias.fromAliasName(this, 'KMSKey', 'alias/marketplace-key');
 
-    this.apiDomain = this.getDomain('api', props.context.environment);
-    this.authDomain = this.getDomain('auth', props.context.environment);
+    this.apiDomain = this.getDomain('api', props.config.deployEnv);
+    this.authDomain = this.getDomain('auth', props.config.deployEnv);
 
     const vpcName = getEnvSpecificName('vpc');
+
+    const additionalSubnets = props.config.usePrivateNetworks
+      ? [
+          {
+            name: 'Private1',
+            subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+            cidrMask: 24,
+          },
+        ]
+      : [
+          {
+            name: 'Public2',
+            subnetType: ec2.SubnetType.PUBLIC,
+            cidrMask: 24,
+          },
+        ];
 
     // Create VPC with 2 public and 2 private subnets
     this.vpc = new ec2.Vpc(this, vpcName, {
@@ -75,16 +92,7 @@ export class NetworkStack extends Stack {
           subnetType: ec2.SubnetType.PUBLIC,
           cidrMask: 24,
         },
-        {
-          name: 'Public2',
-          subnetType: ec2.SubnetType.PUBLIC,
-          cidrMask: 24,
-        },
-        // {
-        //   name: 'Private',
-        //   subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-        //   cidrMask: 24,
-        // },
+        ...additionalSubnets,
       ],
 
       // Enable DNS hostnames and DNS support
@@ -101,22 +109,22 @@ export class NetworkStack extends Stack {
         },
       },
 
-      // Create a NAT Gateway for private subnets
-      // natGateways: 1, // 2 for high availability
+      // Create a NAT Gateway for private subnets (2 for high availability)
+      natGateways: props.config.usePrivateNetworks ? 1 : undefined,
     });
 
     // Add tags to all subnets
     this.vpc.publicSubnets.forEach((subnet, index) => {
       Tags.of(subnet).add(
         'Name',
-        `${props.context.project}-${props.context.environment}-public-subnet-${index + 1}`
+        `${props.config.project}-${props.config.deployEnv}-public-subnet-${index + 1}`
       );
     });
 
     this.vpc.privateSubnets.forEach((subnet, index) => {
       Tags.of(subnet).add(
         'Name',
-        `${props.context.project}-${props.context.environment}-private-subnet-${index + 1}`
+        `${props.config.project}-${props.config.deployEnv}-private-subnet-${index + 1}`
       );
     });
 
@@ -124,19 +132,19 @@ export class NetworkStack extends Stack {
     this.apiCertificate = acm.Certificate.fromCertificateArn(
       this,
       getEnvSpecificName('api-certificate'),
-      this.certMapping[props.context.environment].api
+      this.certMapping[props.config.deployEnv].api
     );
 
     this.regionalCertificate = acm.Certificate.fromCertificateArn(
       this,
       getEnvSpecificName('regional-certificate'),
-      this.certMapping[props.context.environment].regional
+      this.certMapping[props.config.deployEnv].regional
     );
 
     this.authCertificate = acm.Certificate.fromCertificateArn(
       this,
       getEnvSpecificName('auth-certificate'),
-      this.certMapping[props.context.environment].auth
+      this.certMapping[props.config.deployEnv].auth
     );
 
     // Logging bucket
@@ -243,7 +251,7 @@ export class NetworkStack extends Stack {
       trafficType: ec2.FlowLogTrafficType.ALL,
     });
 
-    if (props.context.environment === 'dev') {
+    if (props.config.deployEnv === 'dev') {
       const hostedZone = route53.HostedZone.fromLookup(this, 'Zone', {
         domainName: NetworkStack.domain,
       });
@@ -256,11 +264,11 @@ export class NetworkStack extends Stack {
     }
 
     // Add common tags to all resources in the stack
-    Tags.of(this).add('Project', props.context.project);
-    Tags.of(this).add('Environment', props.context.environment);
+    Tags.of(this).add('Project', props.config.project);
+    Tags.of(this).add('Environment', props.config.deployEnv);
   }
 
-  private getDomain(subdomain: string, environment: DeploymentContext['environment']) {
+  private getDomain(subdomain: string, environment: AppConfig['deployEnv']) {
     return `${subdomain}.${environment === 'dev' ? 'dev.' : ''}${NetworkStack.domain}`;
   }
 }

@@ -1,6 +1,5 @@
-import { getEnvironment } from './environment';
+import { appConfig } from './config';
 
 export const getEnvSpecificName = (name: string) => {
-  const { context } = getEnvironment();
-  return `${context.project}-${context.environment}-${name}`;
+  return `${appConfig.project}-${appConfig.deployEnv}-${name}`;
 };
