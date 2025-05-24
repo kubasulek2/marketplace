@@ -63,7 +63,7 @@ export class NetworkStack extends Stack {
 
     const vpcName = getEnvSpecificName('vpc');
 
-    const additionalSubnets = props.config.usePrivateNetworks
+    const additionalSubnets = props.config.usePrivateSubnets
       ? [
           {
             name: 'Private1',
@@ -104,7 +104,7 @@ export class NetworkStack extends Stack {
       },
 
       // Create a NAT Gateway for private subnets (2 for high availability)
-      natGateways: props.config.usePrivateNetworks ? 1 : undefined,
+      natGateways: props.config.usePrivateSubnets ? 1 : undefined,
     });
 
     // Add tags to all subnets

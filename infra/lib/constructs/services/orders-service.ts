@@ -8,12 +8,12 @@ import { LogGroup } from 'aws-cdk-lib/aws-logs';
 import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
+import { AppConfig } from '../../shared/config';
 import { getEnvSpecificName } from '../../shared/getEnvSpecificName';
-import { AppEnvironment } from '../../shared/types';
 
 export type OrdersServiceProps = {
-  env: AppEnvironment;
   vpc: Vpc;
+  appConfig: AppConfig;
 };
 
 export class OrdersService extends Construct {
@@ -49,18 +49,31 @@ export class OrdersService extends Construct {
       runtime: Runtime.NODEJS_22_X,
       handler: 'index.handler',
       code: Code.fromInline(`
+        const { DynamoDBClient, ScanCommand } = require('@aws-sdk/client-dynamodb');
+        const client = new DynamoDBClient({});
+        const TABLE_NAME = process.env.TABLE_NAME;
         exports.handler = async (event) => {
-          return {
-            statusCode: 200,
-            body: JSON.stringify('Hello World'),
+          try {
+            const data = await client.send(new ScanCommand({ TableName: TABLE_NAME }));
+            return {
+              statusCode: 200,
+              body: JSON.stringify(data.Items),
+              headers: { 'Content-Type': 'application/json' },
+            };
+          } catch (err) {
+            return {
+              statusCode: 500,
+              body: JSON.stringify({ error: err.message }),
+              headers: { 'Content-Type': 'application/json' },
+            };
           };
         };
       `),
-      timeout: Duration.seconds(900),
-      memorySize: 128,
-      vpc: props.vpc,
+      timeout: Duration.seconds(30),
+      memorySize: 256,
+      vpc: props.appConfig.usePrivateSubnets ? props.vpc : undefined,
       environment: {
-        ENV: props.env,
+        TABLE_NAME: getEnvSpecificName('OrdersTable'),
         NO_COLOR: 'true',
       },
       functionName: getEnvSpecificName('OrdersLambda'),
@@ -85,7 +98,7 @@ export class OrdersService extends Construct {
       queueName: getEnvSpecificName('OrdersQueue'),
       encryption: QueueEncryption.KMS_MANAGED,
       enforceSSL: true,
-      visibilityTimeout: Duration.seconds(300), // should be >= Lambda timeout if retrying
+      visibilityTimeout: Duration.seconds(30), // should be >= Lambda timeout if retrying
       receiveMessageWaitTime: Duration.seconds(20), // long polling
       deadLetterQueue: {
         maxReceiveCount: 5,

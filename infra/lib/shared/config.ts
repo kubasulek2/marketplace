@@ -6,7 +6,7 @@ dotenv.config({ path: '.env.local' });
 
 const appConfigSchema = z.object({
   useAuth: z.boolean(),
-  usePrivateNetworks: z.boolean(),
+  usePrivateSubnets: z.boolean(),
   performanceMode: z.boolean(),
   deployEnv: z.enum(['dev', 'prod']),
   project: z.string(),
@@ -33,7 +33,7 @@ const getAppConfig = (): AppConfig => {
 
   return appConfigSchema.parse({
     useAuth: readOptionalBool('USE_AUTH', true),
-    usePrivateNetworks: readOptionalBool('USE_PRIVATE_NETWORKS', true),
+    usePrivateSubnets: readOptionalBool('USE_PRIVATE_SUBNETS', true),
     performanceMode: readOptionalBool('PERFORMANCE_MODE', true),
     deployEnv: readRequiredString('DEPLOY_ENV'),
     project: 'marketplace',

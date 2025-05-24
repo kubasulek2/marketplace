@@ -8,28 +8,28 @@ import { LogGroup } from 'aws-cdk-lib/aws-logs';
 import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
+import { AppConfig } from '../../shared/config';
 import { getEnvSpecificName } from '../../shared/getEnvSpecificName';
-import { AppEnvironment } from '../../shared/types';
 
-export type InventoryServiceProps = {
-  env: AppEnvironment;
+export type PaymentsServiceProps = {
   vpc: Vpc;
+  appConfig: AppConfig;
 };
 
-export class InventoryService extends Construct {
-  constructor(scope: Construct, id: string, props: InventoryServiceProps) {
+export class PaymentsService extends Construct {
+  constructor(scope: Construct, id: string, props: PaymentsServiceProps) {
     super(scope, id);
 
-    const table = new Table(this, 'InventoryTable', {
-      partitionKey: { name: 'productId', type: AttributeType.STRING },
-      sortKey: { name: 'amount', type: AttributeType.NUMBER },
+    const table = new Table(this, 'PaymentsTable', {
+      partitionKey: { name: 'paymentId', type: AttributeType.STRING },
+      sortKey: { name: 'orderId', type: AttributeType.STRING },
       billingMode: BillingMode.PAY_PER_REQUEST,
       removalPolicy: RemovalPolicy.DESTROY,
-      tableName: getEnvSpecificName('InventoryTable'),
+      tableName: getEnvSpecificName('PaymentsTable'),
       encryption: TableEncryption.AWS_MANAGED,
     });
 
-    const lambdaRole = new Role(this, 'InventoryLambdaRole', {
+    const lambdaRole = new Role(this, 'PaymentsLambdaRole', {
       assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
     });
 
@@ -45,47 +45,60 @@ export class InventoryService extends Construct {
       })
     );
 
-    const lambda = new Function(this, getEnvSpecificName('InventoryLambda'), {
+    const lambda = new Function(this, getEnvSpecificName('PaymentsLambda'), {
       runtime: Runtime.NODEJS_22_X,
       handler: 'index.handler',
       code: Code.fromInline(`
+        const { DynamoDBClient, ScanCommand } = require('@aws-sdk/client-dynamodb');
+        const client = new DynamoDBClient({});
+        const TABLE_NAME = process.env.TABLE_NAME;
         exports.handler = async (event) => {
-          return {
-            statusCode: 200,
-            body: JSON.stringify('Hello World'),
+          try {
+            const data = await client.send(new ScanCommand({ TableName: TABLE_NAME }));
+            return {
+              statusCode: 200,
+              body: JSON.stringify(data.Items),
+              headers: { 'Content-Type': 'application/json' },
+            };
+          } catch (err) {
+            return {
+              statusCode: 500,
+              body: JSON.stringify({ error: err.message }),
+              headers: { 'Content-Type': 'application/json' },
+            };
           };
         };
       `),
-      timeout: Duration.seconds(900),
-      memorySize: 128,
-      vpc: props.vpc,
+      timeout: Duration.seconds(30),
+      memorySize: 256,
+      vpc: props.appConfig.usePrivateSubnets ? props.vpc : undefined,
       environment: {
-        ENV: props.env,
+        TABLE_NAME: getEnvSpecificName('PaymentsTable'),
         NO_COLOR: 'true',
       },
-      functionName: getEnvSpecificName('InventoryLambda'),
+      functionName: getEnvSpecificName('PaymentsLambda'),
       logGroup: LogGroup.fromLogGroupName(
         this,
-        'InventoryLambdaLogGroup',
+        'PaymentsLambdaLogGroup',
 
-        `/aws/lambda/${getEnvSpecificName('InventoryLambda')}`
+        `/aws/lambda/${getEnvSpecificName('PaymentsLambda')}`
       ),
     });
 
     table.grantReadWriteData(lambda);
 
-    const dlq = new Queue(this, 'InventoryDLQ', {
-      queueName: getEnvSpecificName('InventoryDLQ'),
+    const dlq = new Queue(this, 'PaymentsDLQ', {
+      queueName: getEnvSpecificName('PaymentsDLQ'),
       encryption: QueueEncryption.KMS_MANAGED,
       enforceSSL: true,
       retentionPeriod: Duration.days(14),
     });
 
-    const queue = new Queue(this, 'InventoryQueue', {
-      queueName: getEnvSpecificName('InventoryQueue'),
+    const queue = new Queue(this, 'PaymentsQueue', {
+      queueName: getEnvSpecificName('PaymentsQueue'),
       encryption: QueueEncryption.KMS_MANAGED,
       enforceSSL: true,
-      visibilityTimeout: Duration.seconds(300), // should be >= Lambda timeout if retrying
+      visibilityTimeout: Duration.seconds(30), // should be >= Lambda timeout if retrying
       receiveMessageWaitTime: Duration.seconds(20), // long polling
       deadLetterQueue: {
         maxReceiveCount: 5,

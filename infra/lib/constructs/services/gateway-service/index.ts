@@ -29,7 +29,7 @@ interface GatewayEcsServiceProps {
 }
 
 export class GatewayEcsService extends Construct {
-  public readonly loadBalancerDnsName = `alb1.${NetworkStack.domain}`;
+  public static readonly loadBalancerDnsName = `alb1.${NetworkStack.domain}`;
 
   constructor(scope: Construct, id: string, props: GatewayEcsServiceProps) {
     super(scope, id);
@@ -197,7 +197,7 @@ export class GatewayEcsService extends Construct {
       vpc: props.vpc,
       minCapacity: props.config.performanceMode ? 2 : 1,
       maxCapacity: props.config.performanceMode ? 8 : 2,
-      vpcSubnets: props.config.usePrivateNetworks
+      vpcSubnets: props.config.usePrivateSubnets
         ? {
             subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
           }
