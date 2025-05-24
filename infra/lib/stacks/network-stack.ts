@@ -13,7 +13,7 @@ import * as kms from 'aws-cdk-lib/aws-kms';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
-import { AppConfig, StackConfig } from '../shared/config';
+import { AppConfig, StackEnvConfig } from '../shared/config';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 
 type CertMapping = {
@@ -26,7 +26,7 @@ type CertMapping = {
 
 export type NetworkStackProps = StackProps & {
   config: AppConfig;
-  env: StackConfig['env'];
+  env: StackEnvConfig;
 };
 
 export class NetworkStack extends Stack {

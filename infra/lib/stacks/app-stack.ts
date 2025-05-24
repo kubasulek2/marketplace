@@ -1,7 +1,6 @@
-import { CfnOutput, Duration, Stack, StackProps, Tags } from 'aws-cdk-lib';
-import { RestApi } from 'aws-cdk-lib/aws-apigateway';
+import { CfnOutput, Stack, StackProps, Tags } from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
-import { UserPool } from 'aws-cdk-lib/aws-cognito';
+import { UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as route53 from 'aws-cdk-lib/aws-route53';
@@ -13,14 +12,14 @@ import { Construct } from 'constructs';
 import { v4 as uuid } from 'uuid';
 
 import { ApiCloudFrontDistribution } from '../constructs/api-cloud-front-distribution';
-import { GatewayEcsService } from '../constructs/services/gateway-ecs-service';
-import { AppConfig, StackConfig } from '../shared/config';
+import { GatewayEcsService } from '../constructs/services/gateway-service';
+import { AppConfig, StackEnvConfig } from '../shared/config';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 import { NetworkStack } from '../stacks/network-stack';
 
 export interface AppStackProps extends StackProps {
   config: AppConfig;
-  env: StackConfig['env'];
+  env: StackEnvConfig;
   vpc: ec2.Vpc;
   apiDomain: string;
   authDomain: string;
@@ -29,7 +28,8 @@ export interface AppStackProps extends StackProps {
   logsBucket: s3.Bucket;
   kmsKey: kms.IAlias;
   userPool?: UserPool;
-  authClientId?: string;
+  userPoolClient?: UserPoolClient;
+  userPoolDomain?: UserPoolDomain;
 }
 
 export class AppStack extends Stack {
@@ -53,6 +53,9 @@ export class AppStack extends Stack {
       kmsKey: props.kmsKey,
       config: props.config,
       originSecret,
+      userPool: props.userPool,
+      userPoolClient: props.userPoolClient,
+      userPoolDomain: props.userPoolDomain,
     });
 
     const distribution = new ApiCloudFrontDistribution(
@@ -65,7 +68,7 @@ export class AppStack extends Stack {
         originSecret,
         logsBucket: props.logsBucket,
         authDomain: props.authDomain,
-        authClientId: props.authClientId,
+        authClientId: props.userPoolClient?.userPoolClientId,
       }
     );
 

@@ -1,26 +1,30 @@
+import { createEnvReader } from '@marketplace/env-parser';
 import dotenv from 'dotenv';
 import { z } from 'zod';
-
-import { createEnvReader } from '@marketplace/env-parser';
 
 dotenv.config({ path: '.env.local' });
 
 const appConfigSchema = z.object({
   useAuth: z.boolean(),
   usePrivateNetworks: z.boolean(),
+  performanceMode: z.boolean(),
   deployEnv: z.enum(['dev', 'prod']),
   project: z.string(),
-  performanceMode: z.boolean(),
-});
-
-const stackConfigSchema = z.object({
-  env: z.object({
-    account: z.string(),
-    region: z.string(),
+  services: z.object({
+    products: z.boolean(),
+    orders: z.boolean(),
+    inventory: z.boolean(),
+    payments: z.boolean(),
+    auth: z.boolean(),
   }),
 });
 
-export type StackConfig = z.infer<typeof stackConfigSchema>;
+const stackEnvConfigSchema = z.object({
+  account: z.string(),
+  region: z.string(),
+});
+
+export type StackEnvConfig = z.infer<typeof stackEnvConfigSchema>;
 
 export type AppConfig = z.infer<typeof appConfigSchema>;
 
@@ -33,17 +37,22 @@ const getAppConfig = (): AppConfig => {
     performanceMode: readOptionalBool('PERFORMANCE_MODE', true),
     deployEnv: readRequiredString('DEPLOY_ENV'),
     project: 'marketplace',
-  });
-};
-const getStackConfig = (): StackConfig => {
-  const { readRequiredString } = createEnvReader(process.env);
-
-  return stackConfigSchema.parse({
-    env: {
-      account: readRequiredString('CDK_DEFAULT_ACCOUNT'),
-      region: readRequiredString('CDK_DEFAULT_REGION'),
+    services: {
+      products: readOptionalBool('SERVICES_PRODUCTS', true),
+      orders: readOptionalBool('SERVICES_ORDERS', true),
+      inventory: readOptionalBool('SERVICES_INVENTORY', true),
+      payments: readOptionalBool('SERVICES_PAYMENTS', true),
+      auth: readOptionalBool('SERVICES_AUTH', true),
     },
   });
 };
+const getStackEnvConfig = (): StackEnvConfig => {
+  const { readRequiredString } = createEnvReader(process.env);
+
+  return stackEnvConfigSchema.parse({
+    account: readRequiredString('CDK_DEFAULT_ACCOUNT'),
+    region: readRequiredString('CDK_DEFAULT_REGION'),
+  });
+};
 export const appConfig = getAppConfig();
-export const stackConfig = getStackConfig();
+export const stackEnvConfig = getStackEnvConfig();

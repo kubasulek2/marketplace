@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 
-import { appConfig, stackConfig } from '../lib/shared/config';
+import { appConfig, stackEnvConfig } from '../lib/shared/config';
 import { getEnvSpecificName } from '../lib/shared/getEnvSpecificName';
 import { AppStack } from '../lib/stacks/app-stack';
 import { AuthStack } from '../lib/stacks/auth-stack';
@@ -13,7 +13,7 @@ const authStackName = getEnvSpecificName('AuthStack');
 
 const networkStack = new NetworkStack(app, networkStackName, {
   config: appConfig,
-  env: stackConfig['env'],
+  env: stackEnvConfig,
 });
 
 let authStack: AuthStack | undefined;
@@ -21,15 +21,16 @@ let authStack: AuthStack | undefined;
 if (appConfig.useAuth) {
   authStack = new AuthStack(app, authStackName, {
     config: appConfig,
-    env: stackConfig.env,
+    env: stackEnvConfig,
     authDomain: networkStack.authDomain,
     authCertificate: networkStack.authCertificate,
+    apiDomain: networkStack.apiDomain,
   });
 }
 
 const appStack = new AppStack(app, appStackName, {
   config: appConfig,
-  env: stackConfig.env,
+  env: stackEnvConfig,
   vpc: networkStack.vpc,
   apiCertificate: networkStack.apiCertificate,
   regionalCertificate: networkStack.regionalCertificate,
@@ -38,5 +39,6 @@ const appStack = new AppStack(app, appStackName, {
   logsBucket: networkStack.logsBucket,
   kmsKey: networkStack.kmsKey,
   userPool: authStack?.userPool,
-  authClientId: authStack?.userPoolClientId,
+  userPoolClient: authStack?.userPoolClient,
+  userPoolDomain: authStack?.userPoolDomain,
 });

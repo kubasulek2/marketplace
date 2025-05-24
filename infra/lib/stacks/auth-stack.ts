@@ -14,21 +14,23 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 
-import { AppConfig, StackConfig } from '../shared/config';
+import { AppConfig, StackEnvConfig } from '../shared/config';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 
 import { NetworkStack } from './network-stack';
 
 export interface AuthStackProps extends StackProps {
   config: AppConfig;
-  env: StackConfig['env'];
+  env: StackEnvConfig;
   authDomain: string;
+  apiDomain: string;
   authCertificate: acm.ICertificate;
 }
 
 export class AuthStack extends Stack {
   public readonly userPool: UserPool;
-  public readonly userPoolClientId: string;
+  public readonly userPoolClient: UserPoolClient;
+  public readonly userPoolDomain: UserPoolDomain;
   constructor(scope: Construct, id: string, props: AuthStackProps) {
     super(scope, id, props);
 
@@ -64,12 +66,15 @@ export class AuthStack extends Stack {
       userPool: this.userPool,
       userPoolClientName: getEnvSpecificName('UserPoolClient'),
       oAuth: {
-        callbackUrls: [`https://${props.authDomain}/callback`],
+        callbackUrls: [
+          `https://${props.apiDomain}/oauth2/idpresponse`,
+          `https://${props.authDomain}/callback`,
+        ],
         logoutUrls: [
           `https://${props.authDomain}/logout`,
           `https://dev.${props.authDomain}/logout`,
         ],
-        defaultRedirectUri: `https://${props.authDomain}/callback`,
+        defaultRedirectUri: `https://${props.apiDomain}/oauth2/idpresponse`,
         scopes: [OAuthScope.EMAIL, OAuthScope.OPENID, OAuthScope.PROFILE],
         flows: {
           authorizationCodeGrant: true,
@@ -80,10 +85,9 @@ export class AuthStack extends Stack {
       accessTokenValidity: Duration.hours(6),
       idTokenValidity: Duration.hours(6),
       refreshTokenValidity: Duration.days(60),
-      authSessionValidity: Duration.minutes(10),
+      authSessionValidity: Duration.minutes(50),
       enableTokenRevocation: true,
-      // set true only for backend apps
-      // generateSecret: true,
+      generateSecret: true, // required for load balancer auth and for backend apps
       preventUserExistenceErrors: true,
       // only matters when not using hosted ui
       authFlows: {
@@ -92,9 +96,9 @@ export class AuthStack extends Stack {
       },
     });
 
-    this.userPoolClientId = userPoolClient.userPoolClientId;
+    this.userPoolClient = userPoolClient;
 
-    const userPoolDomain = new UserPoolDomain(this, 'UserPoolDomain', {
+    this.userPoolDomain = new UserPoolDomain(this, 'UserPoolDomain', {
       userPool: this.userPool,
       customDomain: {
         domainName: props.authDomain,
@@ -102,9 +106,9 @@ export class AuthStack extends Stack {
       },
     });
 
-    userPoolDomain.applyRemovalPolicy(RemovalPolicy.DESTROY);
+    this.userPoolDomain.applyRemovalPolicy(RemovalPolicy.DESTROY);
 
-    const domainTarget = new targets.UserPoolDomainTarget(userPoolDomain);
+    const domainTarget = new targets.UserPoolDomainTarget(this.userPoolDomain);
 
     const aliasRecord = new route53.ARecord(this, 'AuthDomainAliasRecord', {
       zone: hostedZone,
@@ -112,6 +116,6 @@ export class AuthStack extends Stack {
       target: route53.RecordTarget.fromAlias(domainTarget),
     });
 
-    aliasRecord.node.addDependency(userPoolDomain);
+    aliasRecord.node.addDependency(this.userPoolDomain);
   }
 }

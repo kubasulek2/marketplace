@@ -22,30 +22,33 @@ export class ApiCloudFrontDistribution extends Construct {
     super(scope, id);
 
     let redirectUnauthenticatedFunction: cloudfront.Function | undefined;
-    if (props.authClientId) {
-      redirectUnauthenticatedFunction = new cloudfront.Function(
-        this,
-        'RedirectUnauthenticatedFunction',
-        {
-          code: cloudfront.FunctionCode.fromInline(`
-          function handler(event) {
-            if (!event.request.headers.authorization) {
-              return {
-                status: '302',
-                statusDescription: 'Found',
-                headers: {
-                  location: { 
-                    value: 'https://${props.authDomain}/login?client_id=${props.authClientId}&response_type=token&scope=email+openid+profile&redirect_uri=https%3A%2F%2Fauth.dev.kuba-bright.com%2Fcallback',
-                  },
-                },
-              };
-            }
-            return event;
-          }
-        `),
-        }
-      );
-    }
+    // this is only useful when we have custom authService, as alb integration uses session cookies instead of auth tokens
+    // if (props.authClientId) {
+    //   redirectUnauthenticatedFunction = new cloudfront.Function(
+    //     this,
+    //     'RedirectUnauthenticatedFunction',
+    //     {
+    //       code: cloudfront.FunctionCode.fromInline(`
+    //       function handler(event) {
+    //         const request = event.request;
+    //         const headers = request.headers;
+    //         if (!headers.authorization) {
+    //           return {
+    //             status: '302',
+    //             statusDescription: 'Found',
+    //             headers: {
+    //               location: {
+    //                 value: 'https://${props.authDomain}/login?client_id=${props.authClientId}&response_type=token&scope=email+openid+profile&redirect_uri=https%3A%2F%2Fauth.dev.kuba-bright.com%2Fcallback',
+    //               },
+    //             },
+    //           };
+    //         }
+    //         return request;
+    //       }
+    //     `),
+    //     }
+    //   );
+    // }
 
     const productsCachePolicy = new cloudfront.CachePolicy(this, 'ProductsCachePolicy', {
       cachePolicyName: 'ProductsCachePolicy',
