@@ -30,15 +30,50 @@ interface GatewayEcsServiceProps {
 }
 
 export class GatewayEcsService extends Construct {
+  private readonly clusterName: string;
+  private readonly launchTemplate: ec2.LaunchTemplate;
+  private ecsSecurityGroup: ec2.SecurityGroup;
+
   public static readonly loadBalancerDnsName = `alb1.${NetworkStack.domain}`;
 
-  constructor(scope: Construct, id: string, props: GatewayEcsServiceProps) {
+  constructor(
+    scope: Construct,
+    id: string,
+    private readonly props: GatewayEcsServiceProps
+  ) {
     super(scope, id);
-    const clusterName = getEnvSpecificName('gateway-ecs-cluster');
+    this.clusterName = getEnvSpecificName('gateway-ecs-cluster');
 
-    // Create a security group for the ECS instances
-    const ecsSecurityGroup = new ec2.SecurityGroup(this, 'ECSSecurityGroup', {
+    this.launchTemplate = this.createLaunchTemplate();
+
+    const taskDefinition = this.createTask();
+
+    const autoScalingGroup = this.createAutoScalingGroup();
+
+    const service = this.createService(taskDefinition, autoScalingGroup);
+
+    const scalableTarget = this.createAutoScaling(service);
+
+    new GatewayAlb(this, 'GatewayAlb', {
       vpc: props.vpc,
+      certificate: props.certificate,
+      originSecret: props.originSecret,
+      service,
+      scalableTarget,
+      userPool: props.userPool,
+      userPoolClient: props.userPoolClient,
+      userPoolDomain: props.userPoolDomain,
+      ecsSecurityGroup: this.ecsSecurityGroup,
+    });
+
+    // ECS Task CPU and Memory alarms
+    this.createAlarms(service);
+  }
+
+  private createLaunchTemplate() {
+    // Create a security group for the ECS instances
+    this.ecsSecurityGroup = new ec2.SecurityGroup(this, 'ECSSecurityGroup', {
+      vpc: this.props.vpc,
       securityGroupName: getEnvSpecificName('GatewayEcsSecurityGroup'),
       description: 'Security group for ECS instances',
       allowAllOutbound: true,
@@ -78,7 +113,7 @@ export class GatewayEcsService extends Construct {
           'kms:GenerateDataKey*',
           'kms:DescribeKey',
         ],
-        resources: [props.kmsKey.keyArn],
+        resources: [this.props.kmsKey.keyArn],
       })
     );
 
@@ -86,10 +121,10 @@ export class GatewayEcsService extends Construct {
       shebang: '#!/bin/bash',
     });
 
-    userData.addCommands(`echo "ECS_CLUSTER=${clusterName}" >> /etc/ecs/ecs.config`);
+    userData.addCommands(`echo "ECS_CLUSTER=${this.clusterName}" >> /etc/ecs/ecs.config`);
 
     // Create the launch template
-    const launchTemplate = new ec2.LaunchTemplate(this, 'ECSLaunchTemplate', {
+    return new ec2.LaunchTemplate(this, 'ECSLaunchTemplate', {
       launchTemplateName: getEnvSpecificName('GatewayEcsLaunchTemplate'),
       versionDescription: 'v1',
       machineImage: ec2.MachineImage.fromSsmParameter(
@@ -97,7 +132,7 @@ export class GatewayEcsService extends Construct {
       ),
       instanceType: ec2.InstanceType.of(
         ec2.InstanceClass.T3,
-        props.config.performanceMode ? ec2.InstanceSize.MEDIUM : ec2.InstanceSize.MICRO
+        this.props.config.performanceMode ? ec2.InstanceSize.MEDIUM : ec2.InstanceSize.MICRO
       ),
       detailedMonitoring: true,
       requireImdsv2: true,
@@ -112,13 +147,15 @@ export class GatewayEcsService extends Construct {
         },
       ],
       userData: userData,
-      securityGroup: ecsSecurityGroup,
+      securityGroup: this.ecsSecurityGroup,
       instanceProfile: new iam.InstanceProfile(this, 'ECSInstanceProfile', {
         instanceProfileName: getEnvSpecificName('GatewayEcsInstanceProfile'),
         role: ecsInstanceRole,
       }),
     });
+  }
 
+  private createTask() {
     const taskRole = new iam.Role(this, 'GatewayTaskRole', {
       roleName: getEnvSpecificName('GatewayTaskRole'),
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
@@ -173,7 +210,7 @@ export class GatewayEcsService extends Construct {
       }),
       environment: {
         HOST: '0.0.0.0',
-        API_GATEWAY_URL: props.apiGatewayUrl ?? '',
+        API_GATEWAY_URL: this.props.apiGatewayUrl ?? '',
       },
       command: ['-listen=:80', '-text=Hello from Gateway'],
       cpu: 256, // 256 CPU units = 1/4 vCPU
@@ -189,22 +226,21 @@ export class GatewayEcsService extends Construct {
       // },
     });
 
-    const cluster = new ecs.Cluster(this, clusterName, {
-      clusterName,
-      vpc: props.vpc,
-    });
+    return taskDefinition;
+  }
 
+  private createAutoScalingGroup() {
     // Create Auto Scaling Group (ASG) for ECS instances
-    const asg = new autoscaling.AutoScalingGroup(this, 'ECSAutoScalingGroup', {
-      vpc: props.vpc,
-      minCapacity: props.config.performanceMode ? 2 : 1,
-      maxCapacity: props.config.performanceMode ? 8 : 2,
-      vpcSubnets: props.config.usePrivateSubnets
+    return new autoscaling.AutoScalingGroup(this, 'ECSAutoScalingGroup', {
+      vpc: this.props.vpc,
+      minCapacity: this.props.config.performanceMode ? 2 : 1,
+      maxCapacity: this.props.config.performanceMode ? 8 : 2,
+      vpcSubnets: this.props.config.usePrivateSubnets
         ? {
             subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
           }
         : undefined,
-      launchTemplate: launchTemplate,
+      launchTemplate: this.launchTemplate,
       healthChecks: autoscaling.HealthChecks.ec2({
         gracePeriod: Duration.seconds(60),
       }),
@@ -216,11 +252,21 @@ export class GatewayEcsService extends Construct {
       cooldown: Duration.minutes(3),
       defaultInstanceWarmup: Duration.minutes(3),
     });
+  }
+
+  private createService(
+    taskDefinition: ecs.Ec2TaskDefinition,
+    autoScalingGroup: autoscaling.AutoScalingGroup
+  ) {
+    const cluster = new ecs.Cluster(this, this.clusterName, {
+      clusterName: this.clusterName,
+      vpc: this.props.vpc,
+    });
 
     // Create the ECS Capacity Provider with the Auto Scaling Group
     const capacityProvider = new ecs.AsgCapacityProvider(this, 'GatewayCapacityProvider', {
       capacityProviderName: getEnvSpecificName('GatewayCapacityProvider'),
-      autoScalingGroup: asg,
+      autoScalingGroup,
       enableManagedScaling: true,
       enableManagedDraining: true,
       instanceWarmupPeriod: 180, // match ASG settings (3 minutes)
@@ -248,10 +294,14 @@ export class GatewayEcsService extends Construct {
       serviceName: getEnvSpecificName('GatewayService'),
     });
 
+    return service;
+  }
+
+  private createAutoScaling(service: ecs.Ec2Service) {
     // ECS Service Auto Scaling (Task level auto scaling)
     const scalableTarget = service.autoScaleTaskCount({
-      minCapacity: props.config.performanceMode ? 2 : 1,
-      maxCapacity: props.config.performanceMode ? 8 : 4,
+      minCapacity: this.props.config.performanceMode ? 2 : 1,
+      maxCapacity: this.props.config.performanceMode ? 8 : 4,
     });
 
     scalableTarget.scaleOnCpuUtilization('CpuScaling', {
@@ -268,24 +318,10 @@ export class GatewayEcsService extends Construct {
       scaleOutCooldown: Duration.seconds(60),
     });
 
-    const gatewayAlb = new GatewayAlb(this, 'GatewayAlb', {
-      vpc: props.vpc,
-      certificate: props.certificate,
-      originSecret: props.originSecret,
-      service,
-      scalableTarget,
-      userPool: props.userPool,
-      userPoolClient: props.userPoolClient,
-      userPoolDomain: props.userPoolDomain,
-    });
+    return scalableTarget;
+  }
 
-    // Allow Load Balancer to communicate with ECS instances (ALB → ECS)
-    ecsSecurityGroup.addIngressRule(
-      ec2.Peer.securityGroupId(gatewayAlb.loadBalancerSecurityGroup.securityGroupId),
-      ec2.Port.allTraffic(),
-      'Allow all traffic from Load Balancer'
-    );
-
+  private createAlarms(service: ecs.Ec2Service) {
     // ECS Task CPU and Memory alarms
     new cloudwatch.Alarm(this, 'EcsCpuAlarm', {
       metric: service.metricCpuUtilization({
@@ -295,6 +331,15 @@ export class GatewayEcsService extends Construct {
       threshold: 80, // 80% CPU usage threshold
       evaluationPeriods: 2,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+    });
+
+    new cloudwatch.Alarm(this, 'EcsMemoryAlarm', {
+      metric: service.metricMemoryUtilization({
+        period: Duration.minutes(1),
+      }),
+      alarmName: getEnvSpecificName('GatewayMemoryAlarm'),
+      threshold: 70, // 80% memory usage threshold
+      evaluationPeriods: 2,
     });
   }
 }

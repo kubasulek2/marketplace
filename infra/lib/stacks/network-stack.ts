@@ -45,6 +45,7 @@ export class NetworkStack extends Stack {
         'arn:aws:acm:eu-central-1:536697237982:certificate/8a726752-1267-4d0e-b439-31d51dd568cf',
     },
   };
+
   public readonly vpc: ec2.Vpc;
   public readonly apiDomain: string;
   public readonly authDomain: string;
@@ -53,6 +54,8 @@ export class NetworkStack extends Stack {
   public readonly regionalCertificate: acm.ICertificate;
   public readonly kmsKey: kms.IAlias;
   public readonly logsBucket: s3.Bucket;
+  public readonly interfaceApiEndpoint?: ec2.VpcEndpoint;
+
   constructor(scope: Construct, id: string, props: NetworkStackProps) {
     super(scope, id, props);
 
@@ -61,9 +64,58 @@ export class NetworkStack extends Stack {
     this.apiDomain = this.getDomain('api', props.config.deployEnv);
     this.authDomain = this.getDomain('auth', props.config.deployEnv);
 
+    this.vpc = this.createVpc(props.config);
+
+    const { apiCertificate, regionalCertificate, authCertificate } = this.createCertificates(
+      props.config
+    );
+
+    this.apiCertificate = apiCertificate;
+    this.regionalCertificate = regionalCertificate;
+    this.authCertificate = authCertificate;
+
+    const { logsBucket } = this.createVpcLogs();
+
+    this.logsBucket = logsBucket;
+
+    this.addDevSubdomain(props.config);
+
+    // Add common tags to all resources in the stack
+    Tags.of(this).add('Project', props.config.project);
+    Tags.of(this).add('Environment', props.config.deployEnv);
+  }
+
+  private getDomain(subdomain: string, environment: AppConfig['deployEnv']) {
+    return `${subdomain}.${environment === 'dev' ? 'dev.' : ''}${NetworkStack.domain}`;
+  }
+
+  private createCertificates(config: AppConfig) {
+    // Import existing API certificate
+    const apiCertificate = acm.Certificate.fromCertificateArn(
+      this,
+      getEnvSpecificName('api-certificate'),
+      this.certMapping[config.deployEnv].api
+    );
+
+    const regionalCertificate = acm.Certificate.fromCertificateArn(
+      this,
+      getEnvSpecificName('regional-certificate'),
+      this.certMapping[config.deployEnv].regional
+    );
+
+    const authCertificate = acm.Certificate.fromCertificateArn(
+      this,
+      getEnvSpecificName('auth-certificate'),
+      this.certMapping[config.deployEnv].auth
+    );
+
+    return { apiCertificate, regionalCertificate, authCertificate };
+  }
+
+  private createVpc(config: AppConfig) {
     const vpcName = getEnvSpecificName('vpc');
 
-    const additionalSubnets = props.config.usePrivateSubnets
+    const additionalSubnets = config.usePrivateSubnets
       ? [
           {
             name: 'Private1',
@@ -74,7 +126,7 @@ export class NetworkStack extends Stack {
       : [];
 
     // Create VPC with 2 public and 2 private subnets
-    this.vpc = new ec2.Vpc(this, vpcName, {
+    const vpc = new ec2.Vpc(this, vpcName, {
       maxAzs: 2, // Use 2 Availability Zones
       vpcName,
       ipAddresses: ec2.IpAddresses.cidr('10.231.0.0/16'),
@@ -104,45 +156,30 @@ export class NetworkStack extends Stack {
       },
 
       // Create a NAT Gateway for private subnets (2 for high availability)
-      natGateways: props.config.usePrivateSubnets ? 1 : undefined,
+      natGateways: config.usePrivateSubnets ? 1 : undefined,
     });
 
     // Add tags to all subnets
-    this.vpc.publicSubnets.forEach((subnet, index) => {
+    vpc.publicSubnets.forEach((subnet, index) => {
       Tags.of(subnet).add(
         'Name',
-        `${props.config.project}-${props.config.deployEnv}-public-subnet-${index + 1}`
+        `${config.project}-${config.deployEnv}-public-subnet-${index + 1}`
       );
     });
 
-    this.vpc.privateSubnets.forEach((subnet, index) => {
+    vpc.privateSubnets.forEach((subnet, index) => {
       Tags.of(subnet).add(
         'Name',
-        `${props.config.project}-${props.config.deployEnv}-private-subnet-${index + 1}`
+        `${config.project}-${config.deployEnv}-private-subnet-${index + 1}`
       );
     });
 
-    // Import existing API certificate
-    this.apiCertificate = acm.Certificate.fromCertificateArn(
-      this,
-      getEnvSpecificName('api-certificate'),
-      this.certMapping[props.config.deployEnv].api
-    );
+    return vpc;
+  }
 
-    this.regionalCertificate = acm.Certificate.fromCertificateArn(
-      this,
-      getEnvSpecificName('regional-certificate'),
-      this.certMapping[props.config.deployEnv].regional
-    );
-
-    this.authCertificate = acm.Certificate.fromCertificateArn(
-      this,
-      getEnvSpecificName('auth-certificate'),
-      this.certMapping[props.config.deployEnv].auth
-    );
-
+  private createVpcLogs() {
     // Logging bucket
-    this.logsBucket = new s3.Bucket(this, getEnvSpecificName('logs-bucket'), {
+    const logsBucket = new s3.Bucket(this, getEnvSpecificName('logs-bucket'), {
       bucketName: getEnvSpecificName(`logs-${this.account}`),
       versioned: true,
       lifecycleRules: [
@@ -173,7 +210,7 @@ export class NetworkStack extends Stack {
         resources: ['*'],
         conditions: {
           StringEquals: {
-            'kms:EncryptionContext:aws:s3:arn': this.logsBucket.arnForObjects('*'),
+            'kms:EncryptionContext:aws:s3:arn': logsBucket.arnForObjects('*'),
           },
         },
       })
@@ -206,7 +243,7 @@ export class NetworkStack extends Stack {
       effect: iam.Effect.ALLOW,
       principals: [new iam.ServicePrincipal('delivery.logs.amazonaws.com')],
       actions: ['s3:PutObject'],
-      resources: [this.logsBucket.arnForObjects(`AWSLogs/${this.account}/*`)],
+      resources: [logsBucket.arnForObjects(`AWSLogs/${this.account}/*`)],
       conditions: {
         StringEquals: {
           'aws:SourceAccount': this.account,
@@ -222,7 +259,7 @@ export class NetworkStack extends Stack {
       effect: iam.Effect.ALLOW,
       principals: [new iam.ServicePrincipal('delivery.logs.amazonaws.com')],
       actions: ['s3:GetBucketAcl'],
-      resources: [this.logsBucket.bucketArn],
+      resources: [logsBucket.bucketArn],
       conditions: {
         StringEquals: {
           'aws:SourceAccount': this.account,
@@ -233,19 +270,22 @@ export class NetworkStack extends Stack {
       },
     });
 
-    this.logsBucket.addToResourcePolicy(bucketPolicy);
-    this.logsBucket.addToResourcePolicy(bucketAclPolicy);
+    logsBucket.addToResourcePolicy(bucketPolicy);
+    logsBucket.addToResourcePolicy(bucketAclPolicy);
 
     new ec2.FlowLog(this, 'VPCFlowLogs', {
       resourceType: ec2.FlowLogResourceType.fromVpc(this.vpc),
-      destination: ec2.FlowLogDestination.toS3(this.logsBucket, 'vpc-flow-logs', {
+      destination: ec2.FlowLogDestination.toS3(logsBucket, 'vpc-flow-logs', {
         fileFormat: ec2.FlowLogFileFormat.PARQUET,
       }),
       flowLogName: getEnvSpecificName('vpc-flow-logs'),
       trafficType: ec2.FlowLogTrafficType.ALL,
     });
+    return { logsBucket };
+  }
 
-    if (props.config.deployEnv === 'dev') {
+  private addDevSubdomain(config: AppConfig) {
+    if (config.deployEnv === 'dev') {
       const hostedZone = route53.HostedZone.fromLookup(this, 'Zone', {
         domainName: NetworkStack.domain,
       });
@@ -256,13 +296,5 @@ export class NetworkStack extends Stack {
         target: route53.RecordTarget.fromIpAddresses('0.0.0.0'),
       });
     }
-
-    // Add common tags to all resources in the stack
-    Tags.of(this).add('Project', props.config.project);
-    Tags.of(this).add('Environment', props.config.deployEnv);
-  }
-
-  private getDomain(subdomain: string, environment: AppConfig['deployEnv']) {
-    return `${subdomain}.${environment === 'dev' ? 'dev.' : ''}${NetworkStack.domain}`;
   }
 }

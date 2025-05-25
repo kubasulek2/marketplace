@@ -19,6 +19,7 @@ interface GatewayAlbProps {
   originSecret: string;
   service: ecs.Ec2Service;
   scalableTarget: ecs.ScalableTaskCount;
+  ecsSecurityGroup: ec2.SecurityGroup;
   userPool?: cognito.UserPool;
   userPoolClient?: cognito.UserPoolClient;
   userPoolDomain?: cognito.UserPoolDomain;
@@ -164,5 +165,12 @@ export class GatewayAlb extends Construct {
       ],
       evaluationPeriods: 2,
     });
+
+    // Allow Load Balancer to communicate with ECS instances (ALB → ECS)
+    props.ecsSecurityGroup.addIngressRule(
+      ec2.Peer.securityGroupId(this.loadBalancerSecurityGroup.securityGroupId),
+      ec2.Port.allTraffic(),
+      'Allow all traffic from Load Balancer'
+    );
   }
 }
