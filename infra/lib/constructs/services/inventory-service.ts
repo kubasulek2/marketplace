@@ -17,6 +17,8 @@ export type InventoryServiceProps = {
 };
 
 export class InventoryService extends Construct {
+  public readonly lambda: Function;
+
   constructor(scope: Construct, id: string, props: InventoryServiceProps) {
     super(scope, id);
 
@@ -45,7 +47,7 @@ export class InventoryService extends Construct {
       })
     );
 
-    const lambda = new Function(this, getEnvSpecificName('InventoryLambda'), {
+    this.lambda = new Function(this, getEnvSpecificName('InventoryLambda'), {
       runtime: Runtime.NODEJS_22_X,
       handler: 'index.handler',
       code: Code.fromInline(`
@@ -84,7 +86,7 @@ export class InventoryService extends Construct {
       ),
     });
 
-    table.grantReadWriteData(lambda);
+    table.grantReadWriteData(this.lambda);
 
     const dlq = new Queue(this, 'InventoryDLQ', {
       queueName: getEnvSpecificName('InventoryDLQ'),
@@ -106,25 +108,14 @@ export class InventoryService extends Construct {
     });
 
     // Allow Lambda to poll from the queue
-    queue.grantConsumeMessages(lambda);
+    queue.grantConsumeMessages(this.lambda);
 
     // Attach SQS trigger to Lambda with max batch size
-    lambda.addEventSource(
+    this.lambda.addEventSource(
       new SqsEventSource(queue, {
         batchSize: 10, // max allowed by Lambda
         enabled: true,
       })
     );
-
-    // Allow ECS and API Gateway to invoke Lambda (permissive for now)
-    lambda.addPermission('AllowAPIGWInvoke', {
-      principal: new ServicePrincipal('apigateway.amazonaws.com'),
-      action: 'lambda:InvokeFunction',
-    });
-
-    lambda.addPermission('AllowECSInvoke', {
-      principal: new ServicePrincipal('ecs-tasks.amazonaws.com'),
-      action: 'lambda:InvokeFunction',
-    });
   }
 }

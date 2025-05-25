@@ -26,6 +26,7 @@ interface GatewayEcsServiceProps {
   userPool?: UserPool;
   userPoolClient?: UserPoolClient;
   userPoolDomain?: UserPoolDomain;
+  apiGatewayUrl?: string;
 }
 
 export class GatewayEcsService extends Construct {
@@ -172,6 +173,7 @@ export class GatewayEcsService extends Construct {
       }),
       environment: {
         HOST: '0.0.0.0',
+        API_GATEWAY_URL: props.apiGatewayUrl ?? '',
       },
       command: ['-listen=:80', '-text=Hello from Gateway'],
       cpu: 256, // 256 CPU units = 1/4 vCPU

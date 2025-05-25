@@ -46,6 +46,7 @@ const getAppConfig = (): AppConfig => {
     },
   });
 };
+
 const getStackEnvConfig = (): StackEnvConfig => {
   const { readRequiredString } = createEnvReader(process.env);
 
@@ -54,5 +55,6 @@ const getStackEnvConfig = (): StackEnvConfig => {
     region: readRequiredString('CDK_DEFAULT_REGION'),
   });
 };
+
 export const appConfig = getAppConfig();
 export const stackEnvConfig = getStackEnvConfig();

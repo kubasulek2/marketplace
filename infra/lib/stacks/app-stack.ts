@@ -32,6 +32,7 @@ export interface AppStackProps extends StackProps {
 export class AppStack extends Stack {
   public ssmOriginSecretName: string;
   private originSecret: string;
+  private microservices: Microservices;
 
   constructor(
     scope: Construct,
@@ -79,6 +80,7 @@ export class AppStack extends Stack {
       userPool: this.props.userPool,
       userPoolClient: this.props.userPoolClient,
       userPoolDomain: this.props.userPoolDomain,
+      apiGatewayUrl: this.microservices.apiGatewayUrl,
     });
   }
 
@@ -97,9 +99,11 @@ export class AppStack extends Stack {
   }
 
   private createMicroservices() {
-    return new Microservices(this, getEnvSpecificName('Microservices'), {
+    this.microservices = new Microservices(this, getEnvSpecificName('Microservices'), {
       vpc: this.props.vpc,
       appConfig: this.props.config,
     });
+
+    return this.microservices;
   }
 }
