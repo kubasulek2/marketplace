@@ -1,17 +1,18 @@
-import { RemovalPolicy, Duration } from 'aws-cdk-lib';
+import { RemovalPolicy, Duration, Fn } from 'aws-cdk-lib';
 import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import { UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
-import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as sns from 'aws-cdk-lib/aws-sns';
 import { Construct } from 'constructs';
 
 import { AppConfig } from '../../../shared/config';
+import { vpcEndpointSg } from '../../../shared/exports';
 import { getEnvSpecificName } from '../../../shared/getEnvSpecificName';
 import { NetworkStack } from '../../../stacks/network-stack';
 
@@ -26,7 +27,7 @@ interface GatewayEcsServiceProps {
   userPool?: UserPool;
   userPoolClient?: UserPoolClient;
   userPoolDomain?: UserPoolDomain;
-  apiGatewayUrl?: string;
+  apiGatewayUrl: string;
 }
 
 export class GatewayEcsService extends Construct {
@@ -45,6 +46,8 @@ export class GatewayEcsService extends Construct {
     this.clusterName = getEnvSpecificName('gateway-ecs-cluster');
 
     this.launchTemplate = this.createLaunchTemplate();
+
+    this.connectEcsToVpcEndpoint();
 
     const taskDefinition = this.createTask();
 
@@ -68,6 +71,25 @@ export class GatewayEcsService extends Construct {
 
     // ECS Task CPU and Memory alarms
     this.createAlarms(service);
+  }
+
+  private connectEcsToVpcEndpoint() {
+    if (this.props.config.usePrivateSubnets) {
+      const vpcEndpointSG = ec2.SecurityGroup.fromSecurityGroupId(
+        this,
+        'ImportedVpcEndpointSG',
+        Fn.importValue(vpcEndpointSg),
+        {
+          mutable: true, // allows addIngressRule if needed
+        }
+      );
+
+      vpcEndpointSG.addIngressRule(
+        this.ecsSecurityGroup,
+        ec2.Port.tcp(443),
+        'Allow ECS tasks to call API Gateway via interface endpoint'
+      );
+    }
   }
 
   private createLaunchTemplate() {
@@ -210,7 +232,7 @@ export class GatewayEcsService extends Construct {
       }),
       environment: {
         HOST: '0.0.0.0',
-        API_GATEWAY_URL: this.props.apiGatewayUrl ?? '',
+        API_GATEWAY_URL: this.props.apiGatewayUrl,
       },
       command: ['-listen=:80', '-text=Hello from Gateway'],
       cpu: 256, // 256 CPU units = 1/4 vCPU

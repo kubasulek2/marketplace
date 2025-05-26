@@ -1,11 +1,13 @@
-import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
-import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import * as cdk from 'aws-cdk-lib';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
 import { AppConfig } from '../shared/config';
+import { vpcEndpointId } from '../shared/exports';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 
 export interface InternalApiGatewayProps {
@@ -17,64 +19,82 @@ export interface InternalApiGatewayProps {
 }
 
 export class InternalApiGateway extends Construct {
-  public readonly stageUrl: string;
-
-  private api: apigatewayv2.HttpApi;
+  public readonly restApi: apigateway.RestApi;
 
   constructor(scope: Construct, id: string, props: InternalApiGatewayProps) {
     super(scope, id);
 
-    const isProd = props.appConfig.deployEnv === 'prod';
-    // use vpc endpoint
-
-    this.api = new apigatewayv2.HttpApi(this, 'InternalHttpApi', {
-      apiName: getEnvSpecificName('InternalApiGateway'),
-      createDefaultStage: isProd,
+    // Create the REST API
+    this.restApi = new apigateway.RestApi(this, 'InternalRestApi', {
+      restApiName: getEnvSpecificName('InternalApiGateway'),
+      description: `Internal API Gateway for the ${props.appConfig.deployEnv} environment`,
+      endpointConfiguration: props.appConfig.usePrivateSubnets
+        ? {
+            types: [apigateway.EndpointType.PRIVATE],
+            vpcEndpoints: [
+              ec2.InterfaceVpcEndpoint.fromInterfaceVpcEndpointAttributes(this, 'VpcEndpoint', {
+                vpcEndpointId: cdk.Fn.importValue(vpcEndpointId),
+                port: 443,
+              }),
+            ],
+          }
+        : {
+            types: [apigateway.EndpointType.REGIONAL],
+          },
+      deployOptions: {
+        stageName: props.appConfig.deployEnv,
+        loggingLevel: apigateway.MethodLoggingLevel.INFO,
+        dataTraceEnabled: true,
+        metricsEnabled: true,
+        accessLogDestination: new apigateway.LogGroupLogDestination(
+          new logs.LogGroup(this, 'AccessLogGroup', {
+            logGroupName: `/aws/apigateway/internal-api/${props.appConfig.deployEnv}/access`,
+            retention: 30,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+          })
+        ),
+        accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields(),
+      },
     });
 
-    if (isProd) {
-      this.stageUrl = this.api.apiEndpoint; // e.g. https://xyz.execute-api.us-east-1.amazonaws.com
-    } else {
-      new apigatewayv2.HttpStage(this, 'DevStage', {
-        httpApi: this.api,
-        stageName: props.appConfig.deployEnv,
-        autoDeploy: true,
-      });
-      // e.g. https://xyz.execute-api.us-east-1.amazonaws.com/dev
-      this.stageUrl = `${this.api.apiEndpoint}/${props.appConfig.deployEnv}`;
+    if (props.appConfig.usePrivateSubnets) {
+      this.restApi.addToResourcePolicy(
+        new iam.PolicyStatement({
+          actions: ['execute-api:Invoke'],
+          effect: iam.Effect.ALLOW,
+          principals: [new iam.AnyPrincipal()],
+          resources: ['*'],
+
+          conditions: {
+            StringEquals: {
+              'aws:SourceVpce': cdk.Fn.importValue(vpcEndpointId),
+            },
+          },
+        })
+      );
     }
 
+    // Add integrations
     if (props.ordersLambda) {
       this.addIntegration('/orders', props.ordersLambda);
     }
-
     if (props.paymentsLambda) {
       this.addIntegration('/payments', props.paymentsLambda);
     }
-
     if (props.inventoryLambda) {
       this.addIntegration('/inventory', props.inventoryLambda);
     }
 
-    // const vpcEndpoint = props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS });
-
-    // this.api.addVpcLink({
-    //   vpc: props.vpc,
-    //   subnets: vpcEndpoint,
-    // });
+    new cdk.CfnOutput(this, 'ApiUrl', {
+      value: this.restApi.url,
+      description: 'Internal API Gateway URL',
+    });
   }
 
   private addIntegration(path: string, handler: lambda.Function) {
-    this.api.addRoutes({
-      path,
-      methods: [apigatewayv2.HttpMethod.ANY],
-      integration: new integrations.HttpLambdaIntegration(`${path}Integration`, handler),
-    });
-    // Allow this specific API Gateway to invoke the Lambda
-    handler.addPermission(`${path}InvokePermission`, {
-      principal: new iam.ServicePrincipal('apigateway.amazonaws.com'),
-      action: 'lambda:InvokeFunction',
-      sourceArn: this.api.arnForExecuteApi(), // Scopes permission to this API
-    });
+    const resource = this.restApi.root.resourceForPath(path);
+    const integration = new apigateway.LambdaIntegration(handler);
+
+    resource.addMethod('ANY', integration);
   }
 }

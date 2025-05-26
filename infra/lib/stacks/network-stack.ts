@@ -5,6 +5,7 @@ import {
   Duration,
   RemovalPolicy,
   aws_route53 as route53,
+  CfnOutput,
 } from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
@@ -14,6 +15,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
 import { AppConfig, StackEnvConfig } from '../shared/config';
+import { vpcEndpointId, vpcEndpointSg } from '../shared/exports';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 
 type CertMapping = {
@@ -54,7 +56,6 @@ export class NetworkStack extends Stack {
   public readonly regionalCertificate: acm.ICertificate;
   public readonly kmsKey: kms.IAlias;
   public readonly logsBucket: s3.Bucket;
-  public readonly interfaceApiEndpoint?: ec2.VpcEndpoint;
 
   constructor(scope: Construct, id: string, props: NetworkStackProps) {
     super(scope, id, props);
@@ -65,6 +66,8 @@ export class NetworkStack extends Stack {
     this.authDomain = this.getDomain('auth', props.config.deployEnv);
 
     this.vpc = this.createVpc(props.config);
+
+    this.createVpcApiGatewayEndpoint(props.config);
 
     const { apiCertificate, regionalCertificate, authCertificate } = this.createCertificates(
       props.config
@@ -140,11 +143,9 @@ export class NetworkStack extends Stack {
         },
         ...additionalSubnets,
       ],
-
       // Enable DNS hostnames and DNS support
       enableDnsHostnames: true,
       enableDnsSupport: true,
-
       // Create gateway endpoints for S3 and DynamoDB
       gatewayEndpoints: {
         S3: {
@@ -282,6 +283,39 @@ export class NetworkStack extends Stack {
       trafficType: ec2.FlowLogTrafficType.ALL,
     });
     return { logsBucket };
+  }
+
+  private createVpcApiGatewayEndpoint(config: AppConfig) {
+    if (config.usePrivateSubnets) {
+      const sg = new ec2.SecurityGroup(this, 'ApiEndpointSG', {
+        securityGroupName: getEnvSpecificName('api-endpoint-sg'),
+        vpc: this.vpc,
+        description: 'Allow ECS service to call API Gateway via interface endpoint',
+        allowAllOutbound: true,
+      });
+
+      const endpoint = this.vpc.addInterfaceEndpoint('InterfaceApiEndpoint', {
+        service: ec2.InterfaceVpcEndpointAwsService.APIGATEWAY,
+        privateDnsEnabled: true,
+        subnets: {
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        },
+        securityGroups: [sg],
+      });
+
+      new CfnOutput(this, 'VpcEndpointSGIdOutput', {
+        value: sg.securityGroupId,
+        exportName: vpcEndpointSg,
+      });
+
+      new CfnOutput(this, 'VpcEndpointId', {
+        value: endpoint.vpcEndpointId,
+        exportName: vpcEndpointId,
+      });
+
+      return endpoint;
+    }
+    return undefined;
   }
 
   private addDevSubdomain(config: AppConfig) {
