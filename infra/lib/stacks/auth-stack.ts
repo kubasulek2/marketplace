@@ -85,7 +85,7 @@ export class AuthStack extends Stack {
       accessTokenValidity: Duration.hours(6),
       idTokenValidity: Duration.hours(6),
       refreshTokenValidity: Duration.days(60),
-      authSessionValidity: Duration.minutes(50),
+      authSessionValidity: Duration.minutes(3),
       enableTokenRevocation: true,
       generateSecret: true, // required for load balancer auth and for backend apps
       preventUserExistenceErrors: true,

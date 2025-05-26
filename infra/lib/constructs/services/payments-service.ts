@@ -2,9 +2,12 @@ import { Duration, RemovalPolicy } from 'aws-cdk-lib';
 import { AttributeType, BillingMode, Table, TableEncryption } from 'aws-cdk-lib/aws-dynamodb';
 import { Vpc } from 'aws-cdk-lib/aws-ec2';
 import { ManagedPolicy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { LogGroup } from 'aws-cdk-lib/aws-logs';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
@@ -14,6 +17,7 @@ import { getEnvSpecificName } from '../../shared/getEnvSpecificName';
 export type PaymentsServiceProps = {
   vpc: Vpc;
   appConfig: AppConfig;
+  eventBus: sns.Topic;
 };
 
 export class PaymentsService extends Construct {
@@ -38,11 +42,11 @@ export class PaymentsService extends Construct {
       ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
     );
 
-    // Add permissive SNS publish permissions
     lambdaRole.addToPolicy(
       new PolicyStatement({
+        effect: iam.Effect.ALLOW,
         actions: ['sns:Publish'],
-        resources: ['*'], // All SNS topics
+        resources: [props.eventBus.topicArn],
       })
     );
 
@@ -90,14 +94,14 @@ export class PaymentsService extends Construct {
 
     const dlq = new Queue(this, 'PaymentsDLQ', {
       queueName: getEnvSpecificName('PaymentsDLQ'),
-      encryption: QueueEncryption.KMS_MANAGED,
+      encryption: QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
       retentionPeriod: Duration.days(14),
     });
 
     const queue = new Queue(this, 'PaymentsQueue', {
       queueName: getEnvSpecificName('PaymentsQueue'),
-      encryption: QueueEncryption.KMS_MANAGED,
+      encryption: QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
       visibilityTimeout: Duration.seconds(30), // should be >= Lambda timeout if retrying
       receiveMessageWaitTime: Duration.seconds(20), // long polling
@@ -115,6 +119,31 @@ export class PaymentsService extends Construct {
       new SqsEventSource(queue, {
         batchSize: 10, // max allowed by Lambda
         enabled: true,
+      })
+    );
+
+    props.eventBus.addSubscription(
+      new subscriptions.SqsSubscription(queue, {
+        rawMessageDelivery: true, // if false full message with metadata will be delivered, Message must be JSON parsed
+        filterPolicy: {
+          subject: sns.SubscriptionFilter.stringFilter({
+            matchPrefixes: ['payment.'],
+          }),
+        },
+      })
+    );
+
+    queue.addToResourcePolicy(
+      new iam.PolicyStatement({
+        principals: [new iam.ServicePrincipal('sns.amazonaws.com')],
+        effect: iam.Effect.ALLOW,
+        actions: ['sqs:SendMessage'],
+        resources: [queue.queueArn],
+        conditions: {
+          ArnEquals: {
+            'aws:SourceArn': props.eventBus.topicArn,
+          },
+        },
       })
     );
   }

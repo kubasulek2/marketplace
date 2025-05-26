@@ -37,7 +37,7 @@ export class AppStack extends Stack {
   constructor(
     scope: Construct,
     id: string,
-    private props: AppStackProps
+    private readonly props: AppStackProps
   ) {
     super(scope, id, props);
 
@@ -81,6 +81,7 @@ export class AppStack extends Stack {
       userPoolClient: this.props.userPoolClient,
       userPoolDomain: this.props.userPoolDomain,
       apiGatewayUrl: this.microservices.apiGatewayUrl,
+      eventBus: this.microservices.eventBus,
     });
   }
 

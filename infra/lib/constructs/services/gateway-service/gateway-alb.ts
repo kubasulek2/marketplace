@@ -120,6 +120,7 @@ export class GatewayAlb extends Construct {
             userPool: props.userPool!,
             userPoolClient: props.userPoolClient!,
             userPoolDomain: props.userPoolDomain!,
+            sessionTimeout: Duration.hours(6),
             next: elbv2.ListenerAction.forward([targetGroup]),
           })
         : elbv2.ListenerAction.forward([targetGroup]),

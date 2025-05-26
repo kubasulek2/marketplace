@@ -1,5 +1,6 @@
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as sns from 'aws-cdk-lib/aws-sns';
 import { Construct } from 'constructs';
 
 import { AppConfig } from '../shared/config';
@@ -15,7 +16,8 @@ export interface MicroservicesProps {
 }
 
 export class Microservices extends Construct {
-  public readonly apiGatewayUrl?: string;
+  public readonly apiGatewayUrl: string = '';
+  public readonly eventBus: sns.Topic;
 
   private ordersLambda?: lambda.Function;
   private paymentsLambda?: lambda.Function;
@@ -24,11 +26,20 @@ export class Microservices extends Construct {
   constructor(scope: Construct, id: string, props: MicroservicesProps) {
     super(scope, id);
 
+    this.eventBus = new sns.Topic(this, 'EventBus', {
+      enforceSSL: true,
+      displayName: `EventBus-${props.appConfig.deployEnv}`,
+      topicName: `EventBus-${props.appConfig.deployEnv}`,
+      // masterKey: 'my-key' // TODO: provide my own key
+      // tracingConfig: sns.TracingConfig.ACTIVE, // for X-Ray
+    });
+
     // orders service
     if (props.appConfig.services.orders) {
       const ordersService = new OrdersService(this, 'OrdersService', {
         vpc: props.vpc,
         appConfig: props.appConfig,
+        eventBus: this.eventBus,
       });
       this.ordersLambda = ordersService.lambda;
     }
@@ -43,6 +54,7 @@ export class Microservices extends Construct {
       const paymentsService = new PaymentsService(this, 'PaymentsService', {
         vpc: props.vpc,
         appConfig: props.appConfig,
+        eventBus: this.eventBus,
       });
       this.paymentsLambda = paymentsService.lambda;
     }
@@ -52,19 +64,21 @@ export class Microservices extends Construct {
       const inventoryService = new InventoryService(this, 'InventoryService', {
         vpc: props.vpc,
         appConfig: props.appConfig,
+        eventBus: this.eventBus,
       });
       this.inventoryLambda = inventoryService.lambda;
     }
 
     // internal api gateway
     if (this.anyServiceEnabled(props.appConfig)) {
-      this.apiGatewayUrl = new InternalApiGateway(this, 'InternalApiGateway', {
+      const api = new InternalApiGateway(this, 'InternalApiGateway', {
         vpc: props.vpc,
         appConfig: props.appConfig,
         ordersLambda: this.ordersLambda,
         paymentsLambda: this.paymentsLambda,
         inventoryLambda: this.inventoryLambda,
-      }).stageUrl;
+      });
+      this.apiGatewayUrl = api.restApi.url;
     }
   }
 

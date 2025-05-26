@@ -28,6 +28,7 @@ interface GatewayEcsServiceProps {
   userPoolClient?: UserPoolClient;
   userPoolDomain?: UserPoolDomain;
   apiGatewayUrl: string;
+  eventBus: sns.Topic;
 }
 
 export class GatewayEcsService extends Construct {
@@ -184,13 +185,13 @@ export class GatewayEcsService extends Construct {
       managedPolicies: [],
     });
 
-    // TODO: add later
-    // taskRole.addToPolicy(
-    //   new iam.PolicyStatement({
-    //     actions: ['secretsmanager:GetSecretValue'],
-    //     resources: ['*'],
-    //   })
-    // );
+    taskRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['sns:Publish'],
+        resources: [this.props.eventBus.topicArn],
+      })
+    );
 
     const executionRole = new iam.Role(this, 'GatewayTaskExecutionRole', {
       roleName: getEnvSpecificName('GatewayTaskExecutionRole'),
@@ -231,8 +232,8 @@ export class GatewayEcsService extends Construct {
         logGroup: ecsLogGroup,
       }),
       environment: {
-        HOST: '0.0.0.0',
         API_GATEWAY_URL: this.props.apiGatewayUrl,
+        EVENT_BUS_URL: this.props.eventBus.topicArn,
       },
       command: ['-listen=:80', '-text=Hello from Gateway'],
       cpu: 256, // 256 CPU units = 1/4 vCPU
