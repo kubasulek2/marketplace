@@ -1,16 +1,17 @@
 import { CfnOutput, Stack, StackProps, Tags } from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import { Distribution } from 'aws-cdk-lib/aws-cloudfront';
 import { UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { v4 as uuid } from 'uuid';
 
 import { ApiCloudFrontDistribution } from '../constructs/api-cloud-front-distribution';
 import { Microservices } from '../constructs/microservices';
 import { GatewayEcsService } from '../constructs/services/gateway-service';
+import { Waf } from '../constructs/waf';
 import { AppConfig, StackEnvConfig } from '../shared/config';
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 
@@ -45,7 +46,8 @@ export class AppStack extends Stack {
     this.createMicroservices();
     this.createGatewayService();
     // should be last
-    this.createCloudFrontDistribution();
+    const cf = this.createCloudFrontDistribution();
+    this.createWaf(cf.distribution);
 
     // Display the origin secret
     new CfnOutput(this, 'OriginSecret', {
@@ -96,6 +98,15 @@ export class AppStack extends Stack {
       authClientId: this.props.userPoolClient?.userPoolClientId,
       apiDomain: this.props.apiDomain,
       deployEnv: this.props.config.deployEnv,
+    });
+  }
+
+  private createWaf(distribution: Distribution) {
+    if (!this.props.config.performanceMode) {
+      return;
+    }
+    return new Waf(this, getEnvSpecificName('WAF'), {
+      distribution,
     });
   }
 

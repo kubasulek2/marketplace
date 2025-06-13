@@ -1,6 +1,7 @@
 import { Duration } from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import { Distribution } from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets';
@@ -23,6 +24,8 @@ export interface ApiCloudFrontDistributionProps {
 }
 
 export class ApiCloudFrontDistribution extends Construct {
+  public readonly distribution: Distribution;
+
   constructor(scope: Construct, id: string, props: ApiCloudFrontDistributionProps) {
     super(scope, id);
 
@@ -68,7 +71,7 @@ export class ApiCloudFrontDistribution extends Construct {
       enableAcceptEncodingBrotli: true,
     });
 
-    const distribution = new cloudfront.Distribution(this, 'ApiDistribution', {
+    this.distribution = new cloudfront.Distribution(this, 'ApiDistribution', {
       defaultBehavior: {
         origin: new origins.HttpOrigin(props.loadBalancerDomain, {
           protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
@@ -122,7 +125,7 @@ export class ApiCloudFrontDistribution extends Construct {
     new route53.ARecord(this, 'ApiRecord', {
       comment: `API CloudFront Distribution ${props.deployEnv}`,
       zone: hostedZone,
-      target: route53.RecordTarget.fromAlias(new CloudFrontTarget(distribution)),
+      target: route53.RecordTarget.fromAlias(new CloudFrontTarget(this.distribution)),
       recordName: props.apiDomain,
       deleteExisting: true,
     });
@@ -133,7 +136,7 @@ export class ApiCloudFrontDistribution extends Construct {
         service: 'CloudFront',
         action: 'createInvalidation',
         parameters: {
-          DistributionId: distribution.distributionId,
+          DistributionId: this.distribution.distributionId,
           InvalidationBatch: {
             CallerReference: Date.now().toString(),
             Paths: {
@@ -149,6 +152,6 @@ export class ApiCloudFrontDistribution extends Construct {
       }),
     });
 
-    invalidation.node.addDependency(distribution);
+    invalidation.node.addDependency(this.distribution);
   }
 }
