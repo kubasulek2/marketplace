@@ -9,6 +9,7 @@ import { InternalApiGateway } from './internal-api-gateway';
 import { InventoryService } from './services/inventory-service';
 import { OrdersService } from './services/orders-service';
 import { PaymentsService } from './services/payments-service';
+import { ProductsService } from './services/products-service';
 
 export interface MicroservicesProps {
   vpc: ec2.Vpc;
@@ -22,6 +23,7 @@ export class Microservices extends Construct {
   private ordersLambda?: lambda.Function;
   private paymentsLambda?: lambda.Function;
   private inventoryLambda?: lambda.Function;
+  private productsLambda?: lambda.Function;
 
   constructor(scope: Construct, id: string, props: MicroservicesProps) {
     super(scope, id);
@@ -46,7 +48,12 @@ export class Microservices extends Construct {
 
     // products service
     if (props.appConfig.services.products) {
-      // TODO: add products service
+      const productsService = new ProductsService(this, 'ProductsService', {
+        vpc: props.vpc,
+        appConfig: props.appConfig,
+        eventBus: this.eventBus,
+      });
+      this.productsLambda = productsService.lambda;
     }
 
     // payments service
@@ -77,6 +84,7 @@ export class Microservices extends Construct {
         ordersLambda: this.ordersLambda,
         paymentsLambda: this.paymentsLambda,
         inventoryLambda: this.inventoryLambda,
+        productsLambda: this.productsLambda,
       });
       this.apiGatewayUrl = api.restApi.url;
     }

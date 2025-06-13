@@ -102,7 +102,7 @@ export class AppStack extends Stack {
   }
 
   private createWaf(distribution: Distribution) {
-    if (!this.props.config.performanceMode) {
+    if (!this.props.config.useAuth) {
       return;
     }
     return new Waf(this, getEnvSpecificName('WAF'), {

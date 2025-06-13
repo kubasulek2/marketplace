@@ -16,6 +16,7 @@ export interface InternalApiGatewayProps {
   ordersLambda?: lambda.Function;
   paymentsLambda?: lambda.Function;
   inventoryLambda?: lambda.Function;
+  productsLambda?: lambda.Function;
 }
 
 export class InternalApiGateway extends Construct {
@@ -83,6 +84,9 @@ export class InternalApiGateway extends Construct {
     }
     if (props.inventoryLambda) {
       this.addIntegration('/inventory', props.inventoryLambda);
+    }
+    if (props.productsLambda) {
+      this.addIntegration('/products', props.productsLambda);
     }
 
     new cdk.CfnOutput(this, 'ApiUrl', {
