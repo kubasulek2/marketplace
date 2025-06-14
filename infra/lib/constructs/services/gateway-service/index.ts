@@ -1,10 +1,11 @@
-import { RemovalPolicy, Duration, Fn } from 'aws-cdk-lib';
+import { RemovalPolicy, Duration, Fn, Stack } from 'aws-cdk-lib';
 import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import { UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
+import { CfnReplicationGroup } from 'aws-cdk-lib/aws-elasticache';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as logs from 'aws-cdk-lib/aws-logs';
@@ -17,6 +18,7 @@ import { getEnvSpecificName } from '../../../shared/getEnvSpecificName';
 import { NetworkStack } from '../../../stacks/network-stack';
 
 import { GatewayAlb } from './gateway-alb';
+import { RedisGatewayCluster } from './gateway-redis';
 
 interface GatewayEcsServiceProps {
   vpc: ec2.Vpc;
@@ -35,6 +37,7 @@ export class GatewayEcsService extends Construct {
   private readonly clusterName: string;
   private readonly launchTemplate: ec2.LaunchTemplate;
   private ecsSecurityGroup: ec2.SecurityGroup;
+  private redisCluster: RedisGatewayCluster;
 
   public static readonly loadBalancerDnsName = `alb1.${NetworkStack.domain}`;
 
@@ -45,6 +48,8 @@ export class GatewayEcsService extends Construct {
   ) {
     super(scope, id);
     this.clusterName = getEnvSpecificName('gateway-ecs-cluster');
+
+    this.createRedisCluster();
 
     this.launchTemplate = this.createLaunchTemplate();
 
@@ -101,6 +106,12 @@ export class GatewayEcsService extends Construct {
       description: 'Security group for ECS instances',
       allowAllOutbound: true,
     });
+
+    this.redisCluster.redisSecurityGroup.addIngressRule(
+      this.ecsSecurityGroup,
+      ec2.Port.tcp(6379),
+      'Allow ECS tasks to access Redis'
+    );
 
     // Create the IAM role for EC2 instances
     const ecsInstanceRole = new iam.Role(this, 'ECSInstanceRole', {
@@ -193,6 +204,18 @@ export class GatewayEcsService extends Construct {
       })
     );
 
+    const region = Stack.of(this).region;
+    const account = Stack.of(this).account;
+    const replicationGroupArn = `arn:aws:elasticache:${region}:${account}:replicationgroup/${this.redisCluster.redisCluster.ref}`;
+
+    taskRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['elasticache:Connect'],
+        resources: [replicationGroupArn],
+      })
+    );
+
     const executionRole = new iam.Role(this, 'GatewayTaskExecutionRole', {
       roleName: getEnvSpecificName('GatewayTaskExecutionRole'),
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
@@ -234,6 +257,10 @@ export class GatewayEcsService extends Construct {
       environment: {
         API_GATEWAY_URL: this.props.apiGatewayUrl,
         EVENT_BUS_URL: this.props.eventBus.topicArn,
+        REDIS_PASSWORD: this.redisCluster.redisPassword,
+        REDIS_HOST: (this.redisCluster.redisCluster as CfnReplicationGroup)
+          .attrPrimaryEndPointAddress,
+        REDIS_PORT: (this.redisCluster.redisCluster as CfnReplicationGroup).attrPrimaryEndPointPort,
       },
       command: ['-listen=:80', '-text=Hello from Gateway'],
       cpu: 256, // 256 CPU units = 1/4 vCPU
@@ -363,6 +390,13 @@ export class GatewayEcsService extends Construct {
       alarmName: getEnvSpecificName('GatewayMemoryAlarm'),
       threshold: 70, // 80% memory usage threshold
       evaluationPeriods: 2,
+    });
+  }
+
+  private createRedisCluster() {
+    this.redisCluster = new RedisGatewayCluster(this, 'RedisCluster', {
+      vpc: this.props.vpc,
+      appConfig: this.props.config,
     });
   }
 }
