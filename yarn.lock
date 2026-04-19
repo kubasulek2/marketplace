@@ -2211,6 +2211,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@marketplace/service-handler@workspace:libs/service-handler":
+  version: 0.0.0-use.local
+  resolution: "@marketplace/service-handler@workspace:libs/service-handler"
+  dependencies:
+    "@types/aws-lambda": "npm:^8.10.145"
+  languageName: unknown
+  linkType: soft
+
 "@marketplace/shipment@workspace:services/shipment":
   version: 0.0.0-use.local
   resolution: "@marketplace/shipment@workspace:services/shipment"

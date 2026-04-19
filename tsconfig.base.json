@@ -14,6 +14,9 @@
     "paths": {
       "@marketplace/env-parser": [
         "./libs/env-parser/src"
+      ],
+      "@marketplace/service-handler": [
+        "./libs/service-handler/src"
       ]
     },
     "module": "NodeNext",
