@@ -1,8 +1,11 @@
+import * as path from 'path';
+
 import { Duration } from 'aws-cdk-lib';
 import { Port, SecurityGroup, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { ManagedPolicy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
+import { Runtime } from 'aws-cdk-lib/aws-lambda';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { LogGroup } from 'aws-cdk-lib/aws-logs';
 import * as sns from 'aws-cdk-lib/aws-sns';
@@ -21,7 +24,7 @@ export type ProductsServiceProps = {
 };
 
 export class ProductsService extends Construct {
-  public readonly lambda: Function;
+  public readonly lambda: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: ProductsServiceProps) {
     super(scope, id);
@@ -55,64 +58,16 @@ export class ProductsService extends Construct {
       allowAllOutbound: true,
     });
 
-    // Allow Lambda security group to access RDS Proxy on port 5432
     db.dbSecurityGroup.addIngressRule(lambdaSG, Port.tcp(5432), 'Allow Lambda to access RDS Proxy');
 
-    this.lambda = new Function(this, getEnvSpecificName('ProductsLambda'), {
+    this.lambda = new NodejsFunction(this, getEnvSpecificName('ProductsLambda'), {
+      entry: path.join(__dirname, '../../../../services/products/src/index.ts'),
       runtime: Runtime.NODEJS_22_X,
-      securityGroups: [lambdaSG],
-      handler: 'index.handler',
-      code: Code.fromInline(`
-  // const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
-  // const { Client } = require('pg');
-
-  // const secretsClient = new SecretsManagerClient();
-
-  // let cachedSecret = null;
-
-  // async function getDbCredentials(secretArn) {
-  //   if (cachedSecret) return cachedSecret;
-
-  //   const command = new GetSecretValueCommand({ SecretId: secretArn });
-  //   const response = await secretsClient.send(command);
-
-  //   const secretString = response.SecretString;
-  //   cachedSecret = JSON.parse(secretString);
-  //   return cachedSecret;
-  // }
-
-exports.handler = async (event) => {
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: 'Hello, world!' }),
-    headers: { 'Content-Type': 'application/json' },
-  };
-  //   const secretArn = process.env.DB_SECRET_ARN;
-  //   const creds = await getDbCredentials(secretArn);
-
-  //   const client = new Client({
-  //     host: process.env.DB_ENDPOINT,
-  //     user: creds.username,
-  //     password: creds.password,
-  //     database: 'products',
-  //     port: 5432,
-  //     ssl: {
-  //       rejectUnauthorized: true,
-  //     },
-  //   });
-
-  //   await client.connect();
-
-  //   const res = await client.query('SELECT NOW()');
-
-  //   await client.end();
-
-  //   return {
-  //     statusCode: 200,
-  //     body: JSON.stringify({ time: res.rows[0].now }),
-  //   };
-  // };
-      `),
+      handler: 'handler',
+      bundling: {
+        externalModules: ['@aws-sdk/*'],
+        nodeModules: ['pg'],
+      },
       timeout: Duration.seconds(30),
       memorySize: 256,
       vpc: props.vpc,
@@ -122,6 +77,8 @@ exports.handler = async (event) => {
           ? SubnetType.PRIVATE_WITH_EGRESS
           : SubnetType.PUBLIC,
       },
+      securityGroups: [lambdaSG],
+      role: lambdaRole,
       environment: {
         DB_ENDPOINT: db.endpoint,
         NO_COLOR: 'true',
@@ -131,7 +88,6 @@ exports.handler = async (event) => {
       logGroup: LogGroup.fromLogGroupName(
         this,
         'ProductsLambdaLogGroup',
-
         `/aws/lambda/${getEnvSpecificName('ProductsLambda')}`
       ),
     });
@@ -147,28 +103,26 @@ exports.handler = async (event) => {
       queueName: getEnvSpecificName('ProductsQueue'),
       encryption: QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
-      visibilityTimeout: Duration.seconds(30), // should be >= Lambda timeout if retrying
-      receiveMessageWaitTime: Duration.seconds(20), // long polling
+      visibilityTimeout: Duration.seconds(30),
+      receiveMessageWaitTime: Duration.seconds(20),
       deadLetterQueue: {
         maxReceiveCount: 5,
         queue: dlq,
       },
     });
 
-    // Allow Lambda to poll from the queue
     queue.grantConsumeMessages(this.lambda);
 
-    // Attach SQS trigger to Lambda with max batch size
     this.lambda.addEventSource(
       new SqsEventSource(queue, {
-        batchSize: 10, // max allowed by Lambda
+        batchSize: 10,
         enabled: true,
       })
     );
 
     props.eventBus.addSubscription(
       new subscriptions.SqsSubscription(queue, {
-        rawMessageDelivery: true, // if false full message with metadata will be delivered, Message must be JSON parsed
+        rawMessageDelivery: true,
         filterPolicy: {
           subject: sns.SubscriptionFilter.stringFilter({
             matchPrefixes: ['product.'],

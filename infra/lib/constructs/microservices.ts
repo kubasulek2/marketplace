@@ -6,10 +6,12 @@ import { Construct } from 'constructs';
 import { AppConfig } from '../shared/config';
 
 import { InternalApiGateway } from './internal-api-gateway';
+import { OrderSagaStateMachine } from './order-saga-state-machine';
 import { InventoryService } from './services/inventory-service';
 import { OrdersService } from './services/orders-service';
 import { PaymentsService } from './services/payments-service';
 import { ProductsService } from './services/products-service';
+import { ShipmentService } from './services/shipment-service';
 
 export interface MicroservicesProps {
   vpc: ec2.Vpc;
@@ -19,11 +21,13 @@ export interface MicroservicesProps {
 export class Microservices extends Construct {
   public readonly apiGatewayUrl: string = '';
   public readonly eventBus: sns.Topic;
+  public readonly stateMachineArn: string = '';
 
-  private ordersLambda?: lambda.Function;
-  private paymentsLambda?: lambda.Function;
-  private inventoryLambda?: lambda.Function;
-  private productsLambda?: lambda.Function;
+  private ordersLambda?: lambda.IFunction;
+  private paymentsLambda?: lambda.IFunction;
+  private inventoryLambda?: lambda.IFunction;
+  private productsLambda?: lambda.IFunction;
+  private shipmentLambda?: lambda.IFunction;
 
   constructor(scope: Construct, id: string, props: MicroservicesProps) {
     super(scope, id);
@@ -32,11 +36,8 @@ export class Microservices extends Construct {
       enforceSSL: true,
       displayName: `EventBus-${props.appConfig.deployEnv}`,
       topicName: `EventBus-${props.appConfig.deployEnv}`,
-      // masterKey: 'my-key' // TODO: provide my own key
-      // tracingConfig: sns.TracingConfig.ACTIVE, // for X-Ray
     });
 
-    // orders service
     if (props.appConfig.services.orders) {
       const ordersService = new OrdersService(this, 'OrdersService', {
         vpc: props.vpc,
@@ -46,7 +47,6 @@ export class Microservices extends Construct {
       this.ordersLambda = ordersService.lambda;
     }
 
-    // products service
     if (props.appConfig.services.products) {
       const productsService = new ProductsService(this, 'ProductsService', {
         vpc: props.vpc,
@@ -56,7 +56,6 @@ export class Microservices extends Construct {
       this.productsLambda = productsService.lambda;
     }
 
-    // payments service
     if (props.appConfig.services.payments) {
       const paymentsService = new PaymentsService(this, 'PaymentsService', {
         vpc: props.vpc,
@@ -66,7 +65,6 @@ export class Microservices extends Construct {
       this.paymentsLambda = paymentsService.lambda;
     }
 
-    // inventory service
     if (props.appConfig.services.inventory) {
       const inventoryService = new InventoryService(this, 'InventoryService', {
         vpc: props.vpc,
@@ -76,7 +74,31 @@ export class Microservices extends Construct {
       this.inventoryLambda = inventoryService.lambda;
     }
 
-    // internal api gateway
+    if (props.appConfig.services.shipment) {
+      const shipmentService = new ShipmentService(this, 'ShipmentService', {
+        vpc: props.vpc,
+        appConfig: props.appConfig,
+        eventBus: this.eventBus,
+      });
+      this.shipmentLambda = shipmentService.lambda;
+    }
+
+    // Create order saga when all required services are available
+    if (
+      this.ordersLambda &&
+      this.inventoryLambda &&
+      this.paymentsLambda &&
+      this.shipmentLambda
+    ) {
+      const saga = new OrderSagaStateMachine(this, 'OrderSagaStateMachine', {
+        ordersLambda: this.ordersLambda,
+        inventoryLambda: this.inventoryLambda,
+        paymentsLambda: this.paymentsLambda,
+        shipmentLambda: this.shipmentLambda,
+      });
+      this.stateMachineArn = saga.stateMachine.stateMachineArn;
+    }
+
     if (this.anyServiceEnabled(props.appConfig)) {
       const api = new InternalApiGateway(this, 'InternalApiGateway', {
         vpc: props.vpc,
@@ -85,6 +107,7 @@ export class Microservices extends Construct {
         paymentsLambda: this.paymentsLambda,
         inventoryLambda: this.inventoryLambda,
         productsLambda: this.productsLambda,
+        shipmentLambda: this.shipmentLambda,
       });
       this.apiGatewayUrl = api.restApi.url;
     }

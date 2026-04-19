@@ -16,6 +16,7 @@ const appConfigSchema = z.object({
     inventory: z.boolean(),
     payments: z.boolean(),
     auth: z.boolean(),
+    shipment: z.boolean(),
   }),
 });
 
@@ -43,6 +44,7 @@ const getAppConfig = (): AppConfig => {
       inventory: readOptionalBool('SERVICES_INVENTORY', true),
       payments: readOptionalBool('SERVICES_PAYMENTS', true),
       auth: readOptionalBool('SERVICES_AUTH', true),
+      shipment: readOptionalBool('SERVICES_SHIPMENT', true),
     },
   });
 };

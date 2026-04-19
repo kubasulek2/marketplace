@@ -13,10 +13,11 @@ import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 export interface InternalApiGatewayProps {
   vpc: ec2.Vpc;
   appConfig: AppConfig;
-  ordersLambda?: lambda.Function;
-  paymentsLambda?: lambda.Function;
-  inventoryLambda?: lambda.Function;
-  productsLambda?: lambda.Function;
+  ordersLambda?: lambda.IFunction;
+  paymentsLambda?: lambda.IFunction;
+  inventoryLambda?: lambda.IFunction;
+  productsLambda?: lambda.IFunction;
+  shipmentLambda?: lambda.IFunction;
 }
 
 export class InternalApiGateway extends Construct {
@@ -25,7 +26,6 @@ export class InternalApiGateway extends Construct {
   constructor(scope: Construct, id: string, props: InternalApiGatewayProps) {
     super(scope, id);
 
-    // Create the REST API
     this.restApi = new apigateway.RestApi(this, 'InternalRestApi', {
       restApiName: getEnvSpecificName('InternalApiGateway'),
       description: `Internal API Gateway for the ${props.appConfig.deployEnv} environment`,
@@ -65,7 +65,6 @@ export class InternalApiGateway extends Construct {
           effect: iam.Effect.ALLOW,
           principals: [new iam.AnyPrincipal()],
           resources: ['*'],
-
           conditions: {
             StringEquals: {
               'aws:SourceVpce': cdk.Fn.importValue(vpcEndpointId),
@@ -75,18 +74,20 @@ export class InternalApiGateway extends Construct {
       );
     }
 
-    // Add integrations
     if (props.ordersLambda) {
-      this.addIntegration('/orders', props.ordersLambda);
+      this.addIntegration('orders', props.ordersLambda);
     }
     if (props.paymentsLambda) {
-      this.addIntegration('/payments', props.paymentsLambda);
+      this.addIntegration('payments', props.paymentsLambda);
     }
     if (props.inventoryLambda) {
-      this.addIntegration('/inventory', props.inventoryLambda);
+      this.addIntegration('inventory', props.inventoryLambda);
     }
     if (props.productsLambda) {
-      this.addIntegration('/products', props.productsLambda);
+      this.addProductsIntegration(props.productsLambda);
+    }
+    if (props.shipmentLambda) {
+      this.addIntegration('shipments', props.shipmentLambda);
     }
 
     new cdk.CfnOutput(this, 'ApiUrl', {
@@ -95,10 +96,16 @@ export class InternalApiGateway extends Construct {
     });
   }
 
-  private addIntegration(path: string, handler: lambda.Function) {
-    const resource = this.restApi.root.resourceForPath(path);
-    const integration = new apigateway.LambdaIntegration(handler);
+  private addIntegration(resourcePath: string, handler: lambda.IFunction) {
+    const resource = this.restApi.root.addResource(resourcePath);
+    resource.addMethod('ANY', new apigateway.LambdaIntegration(handler));
+  }
 
+  private addProductsIntegration(handler: lambda.IFunction) {
+    const integration = new apigateway.LambdaIntegration(handler);
+    const resource = this.restApi.root.addResource('products');
     resource.addMethod('ANY', integration);
+    // Support GET /products/{id}
+    resource.addResource('{id}').addMethod('ANY', integration);
   }
 }

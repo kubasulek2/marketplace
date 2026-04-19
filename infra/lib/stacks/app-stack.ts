@@ -84,6 +84,7 @@ export class AppStack extends Stack {
       userPoolDomain: this.props.userPoolDomain,
       apiGatewayUrl: this.microservices.apiGatewayUrl,
       eventBus: this.microservices.eventBus,
+      stateMachineArn: this.microservices.stateMachineArn || undefined,
     });
   }
 

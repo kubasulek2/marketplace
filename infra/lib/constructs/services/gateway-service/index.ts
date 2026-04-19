@@ -31,6 +31,7 @@ interface GatewayEcsServiceProps {
   userPoolDomain?: UserPoolDomain;
   apiGatewayUrl: string;
   eventBus: sns.Topic;
+  stateMachineArn?: string;
 }
 
 export class GatewayEcsService extends Construct {
@@ -216,6 +217,16 @@ export class GatewayEcsService extends Construct {
       })
     );
 
+    if (this.props.stateMachineArn) {
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['states:StartSyncExecution'],
+          resources: [this.props.stateMachineArn],
+        })
+      );
+    }
+
     const executionRole = new iam.Role(this, 'GatewayTaskExecutionRole', {
       roleName: getEnvSpecificName('GatewayTaskExecutionRole'),
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
@@ -261,6 +272,9 @@ export class GatewayEcsService extends Construct {
         REDIS_HOST: (this.redisCluster.redisCluster as CfnReplicationGroup)
           .attrPrimaryEndPointAddress,
         REDIS_PORT: (this.redisCluster.redisCluster as CfnReplicationGroup).attrPrimaryEndPointPort,
+        ...(this.props.stateMachineArn
+          ? { ORDER_SAGA_STATE_MACHINE_ARN: this.props.stateMachineArn }
+          : {}),
       },
       command: ['-listen=:80', '-text=Hello from Gateway'],
       cpu: 256, // 256 CPU units = 1/4 vCPU

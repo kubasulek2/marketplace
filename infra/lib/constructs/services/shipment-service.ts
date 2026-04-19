@@ -17,28 +17,28 @@ import { Construct } from 'constructs';
 import { AppConfig } from '../../shared/config';
 import { getEnvSpecificName } from '../../shared/getEnvSpecificName';
 
-export type PaymentsServiceProps = {
+export type ShipmentServiceProps = {
   vpc: Vpc;
   appConfig: AppConfig;
   eventBus: sns.Topic;
 };
 
-export class PaymentsService extends Construct {
+export class ShipmentService extends Construct {
   public readonly lambda: NodejsFunction;
 
-  constructor(scope: Construct, id: string, props: PaymentsServiceProps) {
+  constructor(scope: Construct, id: string, props: ShipmentServiceProps) {
     super(scope, id);
 
-    const table = new Table(this, 'PaymentsTable', {
-      partitionKey: { name: 'paymentId', type: AttributeType.STRING },
+    const table = new Table(this, 'ShipmentTable', {
+      partitionKey: { name: 'shipmentId', type: AttributeType.STRING },
       sortKey: { name: 'orderId', type: AttributeType.STRING },
       billingMode: BillingMode.PAY_PER_REQUEST,
       removalPolicy: RemovalPolicy.DESTROY,
-      tableName: getEnvSpecificName('PaymentsTable'),
+      tableName: getEnvSpecificName('ShipmentTable'),
       encryption: TableEncryption.AWS_MANAGED,
     });
 
-    const lambdaRole = new Role(this, 'PaymentsLambdaRole', {
+    const lambdaRole = new Role(this, 'ShipmentLambdaRole', {
       assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
     });
 
@@ -54,8 +54,8 @@ export class PaymentsService extends Construct {
       })
     );
 
-    this.lambda = new NodejsFunction(this, getEnvSpecificName('PaymentsLambda'), {
-      entry: path.join(__dirname, '../../../../services/payments/src/index.ts'),
+    this.lambda = new NodejsFunction(this, getEnvSpecificName('ShipmentLambda'), {
+      entry: path.join(__dirname, '../../../../services/shipment/src/index.ts'),
       runtime: Runtime.NODEJS_22_X,
       handler: 'handler',
       bundling: {
@@ -66,28 +66,28 @@ export class PaymentsService extends Construct {
       vpc: props.appConfig.usePrivateSubnets ? props.vpc : undefined,
       role: lambdaRole,
       environment: {
-        TABLE_NAME: getEnvSpecificName('PaymentsTable'),
+        TABLE_NAME: getEnvSpecificName('ShipmentTable'),
         NO_COLOR: 'true',
       },
-      functionName: getEnvSpecificName('PaymentsLambda'),
+      functionName: getEnvSpecificName('ShipmentLambda'),
       logGroup: LogGroup.fromLogGroupName(
         this,
-        'PaymentsLambdaLogGroup',
-        `/aws/lambda/${getEnvSpecificName('PaymentsLambda')}`
+        'ShipmentLambdaLogGroup',
+        `/aws/lambda/${getEnvSpecificName('ShipmentLambda')}`
       ),
     });
 
     table.grantReadWriteData(this.lambda);
 
-    const dlq = new Queue(this, 'PaymentsDLQ', {
-      queueName: getEnvSpecificName('PaymentsDLQ'),
+    const dlq = new Queue(this, 'ShipmentDLQ', {
+      queueName: getEnvSpecificName('ShipmentDLQ'),
       encryption: QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
       retentionPeriod: Duration.days(14),
     });
 
-    const queue = new Queue(this, 'PaymentsQueue', {
-      queueName: getEnvSpecificName('PaymentsQueue'),
+    const queue = new Queue(this, 'ShipmentQueue', {
+      queueName: getEnvSpecificName('ShipmentQueue'),
       encryption: QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
       visibilityTimeout: Duration.seconds(30),
@@ -112,7 +112,7 @@ export class PaymentsService extends Construct {
         rawMessageDelivery: true,
         filterPolicy: {
           subject: sns.SubscriptionFilter.stringFilter({
-            matchPrefixes: ['payment.'],
+            matchPrefixes: ['shipment.'],
           }),
         },
       })

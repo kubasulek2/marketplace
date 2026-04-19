@@ -1,0 +1,11 @@
+{
+  "name": "@marketplace/inventory",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145"
+  }
+}

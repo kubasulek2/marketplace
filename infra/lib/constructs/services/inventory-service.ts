@@ -1,9 +1,12 @@
+import * as path from 'path';
+
 import { Duration, RemovalPolicy } from 'aws-cdk-lib';
 import { AttributeType, BillingMode, Table, TableEncryption } from 'aws-cdk-lib/aws-dynamodb';
 import { Vpc } from 'aws-cdk-lib/aws-ec2';
 import { ManagedPolicy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
+import { Runtime } from 'aws-cdk-lib/aws-lambda';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { LogGroup } from 'aws-cdk-lib/aws-logs';
 import * as sns from 'aws-cdk-lib/aws-sns';
@@ -21,7 +24,7 @@ export type InventoryServiceProps = {
 };
 
 export class InventoryService extends Construct {
-  public readonly lambda: Function;
+  public readonly lambda: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: InventoryServiceProps) {
     super(scope, id);
@@ -51,40 +54,17 @@ export class InventoryService extends Construct {
       })
     );
 
-    lambdaRole.addToPolicy(
-      new PolicyStatement({
-        actions: ['sns:Publish'],
-        resources: [props.eventBus.topicArn],
-      })
-    );
-
-    this.lambda = new Function(this, getEnvSpecificName('InventoryLambda'), {
+    this.lambda = new NodejsFunction(this, getEnvSpecificName('InventoryLambda'), {
+      entry: path.join(__dirname, '../../../../services/inventory/src/index.ts'),
       runtime: Runtime.NODEJS_22_X,
-      handler: 'index.handler',
-      code: Code.fromInline(`
-        const { DynamoDBClient, ScanCommand } = require('@aws-sdk/client-dynamodb');
-        const client = new DynamoDBClient({});
-        const TABLE_NAME = process.env.TABLE_NAME;
-        exports.handler = async (event) => {
-          try {
-            const data = await client.send(new ScanCommand({ TableName: TABLE_NAME }));
-            return {
-              statusCode: 200,
-              body: JSON.stringify(data.Items),
-              headers: { 'Content-Type': 'application/json' },
-            };
-          } catch (err) {
-            return {
-              statusCode: 500,
-              body: JSON.stringify({ error: err.message }),
-              headers: { 'Content-Type': 'application/json' },
-            };
-          };
-        };
-      `),
+      handler: 'handler',
+      bundling: {
+        externalModules: ['@aws-sdk/*'],
+      },
       timeout: Duration.seconds(30),
       memorySize: 256,
       vpc: props.appConfig.usePrivateSubnets ? props.vpc : undefined,
+      role: lambdaRole,
       environment: {
         NO_COLOR: 'true',
         TABLE_NAME: getEnvSpecificName('InventoryTable'),
@@ -110,27 +90,26 @@ export class InventoryService extends Construct {
       queueName: getEnvSpecificName('InventoryQueue'),
       encryption: QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
-      visibilityTimeout: Duration.seconds(30), // should be >= Lambda timeout if retrying
-      receiveMessageWaitTime: Duration.seconds(20), // long polling
+      visibilityTimeout: Duration.seconds(30),
+      receiveMessageWaitTime: Duration.seconds(20),
       deadLetterQueue: {
         maxReceiveCount: 5,
         queue: dlq,
       },
     });
 
-    // Allow Lambda to poll from the queue
     queue.grantConsumeMessages(this.lambda);
 
-    // Attach SQS trigger to Lambda with max batch size
     this.lambda.addEventSource(
       new SqsEventSource(queue, {
-        batchSize: 10, // max allowed by Lambda
+        batchSize: 10,
         enabled: true,
       })
     );
+
     props.eventBus.addSubscription(
       new subscriptions.SqsSubscription(queue, {
-        rawMessageDelivery: true, // if false full message with metadata will be delivered, Message must be JSON parsed
+        rawMessageDelivery: true,
         filterPolicy: {
           subject: sns.SubscriptionFilter.stringFilter({
             matchPrefixes: ['inventory.'],
