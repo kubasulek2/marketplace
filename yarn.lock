@@ -2741,6 +2741,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@marketplace/inventory@workspace:services/inventory"
   dependencies:
+    "@marketplace/service-handler": "workspace:*"
     "@types/aws-lambda": "npm:^8.10.145"
   languageName: unknown
   linkType: soft
@@ -2749,6 +2750,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@marketplace/orders@workspace:services/orders"
   dependencies:
+    "@marketplace/service-handler": "workspace:*"
     "@types/aws-lambda": "npm:^8.10.145"
   languageName: unknown
   linkType: soft
@@ -2757,6 +2759,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@marketplace/payments@workspace:services/payments"
   dependencies:
+    "@marketplace/service-handler": "workspace:*"
     "@types/aws-lambda": "npm:^8.10.145"
   languageName: unknown
   linkType: soft
@@ -2785,6 +2788,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@marketplace/shipment@workspace:services/shipment"
   dependencies:
+    "@marketplace/service-handler": "workspace:*"
     "@types/aws-lambda": "npm:^8.10.145"
   languageName: unknown
   linkType: soft

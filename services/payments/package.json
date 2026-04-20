@@ -5,6 +5,9 @@
   "scripts": {
     "build": "tsc"
   },
+  "dependencies": {
+    "@marketplace/service-handler": "workspace:*"
+  },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.145"
   }
