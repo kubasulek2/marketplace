@@ -252,7 +252,7 @@ export class GatewayEcsService extends Construct {
     });
 
     taskDefinition.addContainer('GatewayContainer', {
-      image: ecs.ContainerImage.fromRegistry('hashicorp/http-echo'),
+      image: ecs.ContainerImage.fromAsset('../services/gateway'),
       essential: true,
       portMappings: [
         {
@@ -276,7 +276,6 @@ export class GatewayEcsService extends Construct {
           ? { ORDER_SAGA_STATE_MACHINE_ARN: this.props.stateMachineArn }
           : {}),
       },
-      command: ['-listen=:80', '-text=Hello from Gateway'],
       cpu: 256, // 256 CPU units = 1/4 vCPU
       memoryReservationMiB: 256, // soft limit
       memoryLimitMiB: 512, // hard limit
