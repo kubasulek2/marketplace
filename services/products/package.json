@@ -4,5 +4,14 @@
   "private": true,
   "scripts": {
     "build": "tsc"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.0.0",
+    "@marketplace/service-handler": "workspace:*",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/pg": "^8.11.0"
   }
 }
