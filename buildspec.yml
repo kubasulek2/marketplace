@@ -1,0 +1,16 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      - corepack enable
+      - corepack prepare yarn@4.9.1 --activate
+      - yarn install
+
+  build:
+    commands:
+      - cd libs/env-parser && npx tsc && cd ../..
+      - cd infra && npx tsc --noEmit
+      - yarn deploy --require-approval never

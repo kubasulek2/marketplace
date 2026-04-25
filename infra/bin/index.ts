@@ -5,6 +5,7 @@ import { getEnvSpecificName } from '../lib/shared/getEnvSpecificName';
 import { AppStack } from '../lib/stacks/app-stack';
 import { AuthStack } from '../lib/stacks/auth-stack';
 import { NetworkStack } from '../lib/stacks/network-stack';
+import { PipelineStack } from '../lib/stacks/pipeline-stack';
 
 const app = new cdk.App();
 const networkStackName = getEnvSpecificName('NetworkStack');
@@ -42,3 +43,16 @@ const appStack = new AppStack(app, appStackName, {
   userPoolClient: authStack?.userPoolClient,
   userPoolDomain: authStack?.userPoolDomain,
 });
+
+// Pipeline stack — only created when CODESTAR_CONNECTION_ARN is provided
+const codeStarConnectionArn = process.env.CODESTAR_CONNECTION_ARN;
+if (codeStarConnectionArn) {
+  new PipelineStack(app, getEnvSpecificName('PipelineStack'), {
+    config: appConfig,
+    env: stackEnvConfig,
+    codeStarConnectionArn,
+    githubOwner: 'kubasulek2',
+    githubRepo: 'marketplace',
+    githubBranch: 'master',
+  });
+}
