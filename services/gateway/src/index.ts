@@ -1,6 +1,6 @@
 import { SFNClient, StartSyncExecutionCommand } from '@aws-sdk/client-sfn';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
-import AWSXRay from 'aws-xray-sdk-node';
+import AWSXRay from 'aws-xray-sdk';
 import express from 'express';
 
 const app = express();

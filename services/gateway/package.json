@@ -9,7 +9,7 @@
   "dependencies": {
     "@aws-sdk/client-sfn": "^3.0.0",
     "@aws-sdk/client-sns": "^3.0.0",
-    "aws-xray-sdk-node": "^3.10.0",
+    "aws-xray-sdk": "^3.10.0",
     "express": "^4.21.0"
   },
   "devDependencies": {
