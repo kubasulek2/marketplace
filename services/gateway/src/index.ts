@@ -1,9 +1,11 @@
 import { SFNClient, StartSyncExecutionCommand } from '@aws-sdk/client-sfn';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
+import AWSXRay from 'aws-xray-sdk-node';
 import express from 'express';
 
 const app = express();
 app.use(express.json());
+app.use(AWSXRay.express.openSegment('marketplace-gateway'));
 
 const PORT = process.env.PORT ?? 80;
 const API_GATEWAY_URL = process.env.API_GATEWAY_URL ?? '';
@@ -65,6 +67,8 @@ app.post('/restock', async (req, res) => {
     res.status(500).json({ error: 'Failed to publish restock event' });
   }
 });
+
+app.use(AWSXRay.express.closeSegment());
 
 app.listen(PORT, () => {
   console.log(`Gateway listening on port ${PORT}`);

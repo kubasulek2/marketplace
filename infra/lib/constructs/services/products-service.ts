@@ -4,7 +4,7 @@ import { Duration } from 'aws-cdk-lib';
 import { Port, SecurityGroup, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { ManagedPolicy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import { Runtime } from 'aws-cdk-lib/aws-lambda';
+import { Runtime, Tracing } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { LogGroup } from 'aws-cdk-lib/aws-logs';
@@ -68,6 +68,7 @@ export class ProductsService extends Construct {
         externalModules: ['@aws-sdk/*'],
         nodeModules: ['pg'],
       },
+      tracing: Tracing.ACTIVE,
       timeout: Duration.seconds(30),
       memorySize: 256,
       vpc: props.vpc,

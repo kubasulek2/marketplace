@@ -227,6 +227,14 @@ export class GatewayEcsService extends Construct {
       );
     }
 
+    taskRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['xray:PutTraceSegments', 'xray:PutTelemetryRecords', 'xray:GetSamplingRules', 'xray:GetSamplingTargets'],
+        resources: ['*'],
+      })
+    );
+
     const executionRole = new iam.Role(this, 'GatewayTaskExecutionRole', {
       roleName: getEnvSpecificName('GatewayTaskExecutionRole'),
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
@@ -276,17 +284,30 @@ export class GatewayEcsService extends Construct {
           ? { ORDER_SAGA_STATE_MACHINE_ARN: this.props.stateMachineArn }
           : {}),
       },
-      cpu: 256, // 256 CPU units = 1/4 vCPU
+      cpu: 256,
       memoryReservationMiB: 256, // soft limit
       memoryLimitMiB: 512, // hard limit
-      // Do not use it with hashicorp/http-echo as it doesn't include shell not curl
-      // healthCheck: {
-      //   command: ['CMD-SHELL', 'curl -f http://localhost:80/ || exit 1'],
-      //   interval: Duration.seconds(30),
-      //   timeout: Duration.seconds(5),
-      //   retries: 3,
-      //   startPeriod: Duration.seconds(60),
-      // },
+      healthCheck: {
+        command: ['CMD-SHELL', 'curl -f http://localhost:80/health || exit 1'],
+        interval: Duration.seconds(30),
+        timeout: Duration.seconds(5),
+        retries: 3,
+        startPeriod: Duration.seconds(60),
+      },
+    });
+
+    // X-Ray daemon sidecar — receives segments from the Express app and forwards to AWS X-Ray
+    taskDefinition.addContainer('XRayDaemon', {
+      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/xray/aws-xray-daemon:latest'),
+      essential: false,
+      portMappings: [{ containerPort: 2000, protocol: ecs.Protocol.UDP }],
+      cpu: 32,
+      memoryReservationMiB: 64,
+      memoryLimitMiB: 128,
+      logging: ecs.LogDriver.awsLogs({
+        streamPrefix: 'xray-daemon',
+        logGroup: ecsLogGroup,
+      }),
     });
 
     return taskDefinition;

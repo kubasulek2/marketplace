@@ -5,7 +5,7 @@ import { AttributeType, BillingMode, Table, TableEncryption } from 'aws-cdk-lib/
 import { Vpc } from 'aws-cdk-lib/aws-ec2';
 import { ManagedPolicy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import { Runtime } from 'aws-cdk-lib/aws-lambda';
+import { Runtime, Tracing } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { LogGroup } from 'aws-cdk-lib/aws-logs';
@@ -61,6 +61,7 @@ export class OrdersService extends Construct {
       bundling: {
         externalModules: ['@aws-sdk/*'],
       },
+      tracing: Tracing.ACTIVE,
       timeout: Duration.seconds(30),
       memorySize: 256,
       vpc: props.appConfig.usePrivateSubnets ? props.vpc : undefined,

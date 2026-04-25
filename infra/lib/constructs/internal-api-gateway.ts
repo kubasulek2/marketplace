@@ -47,6 +47,7 @@ export class InternalApiGateway extends Construct {
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: true,
         metricsEnabled: true,
+        tracingEnabled: true,
         accessLogDestination: new apigateway.LogGroupLogDestination(
           new logs.LogGroup(this, 'AccessLogGroup', {
             logGroupName: `/aws/apigateway/internal-api/${props.appConfig.deployEnv}/access`,
