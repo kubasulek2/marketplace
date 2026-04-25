@@ -20,3 +20,6 @@ test-output
 
 # Local agent documentation
 *.local.md
+
+# Local thesis documents
+docs/
