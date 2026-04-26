@@ -85,6 +85,7 @@ export class AppStack extends Stack {
       apiGatewayUrl: this.microservices.apiGatewayUrl,
       eventBus: this.microservices.eventBus,
       stateMachineArn: this.microservices.stateMachineArn || undefined,
+      invalidationQueueUrl: this.microservices.gatewayInvalidationQueueUrl || undefined,
     });
   }
 

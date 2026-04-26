@@ -82,7 +82,10 @@ export class InternalApiGateway extends Construct {
       this.addIntegration('payments', props.paymentsLambda);
     }
     if (props.inventoryLambda) {
-      this.addIntegration('inventory', props.inventoryLambda);
+      const integration = new apigateway.LambdaIntegration(props.inventoryLambda);
+      const resource = this.restApi.root.addResource('inventory');
+      resource.addMethod('ANY', integration);
+      resource.addResource('{id}').addMethod('ANY', integration);
     }
     if (props.productsLambda) {
       this.addProductsIntegration(props.productsLambda);

@@ -32,6 +32,7 @@ interface GatewayEcsServiceProps {
   apiGatewayUrl: string;
   eventBus: sns.Topic;
   stateMachineArn?: string;
+  invalidationQueueUrl?: string;
 }
 
 export class GatewayEcsService extends Construct {
@@ -235,6 +236,16 @@ export class GatewayEcsService extends Construct {
       })
     );
 
+    if (this.props.invalidationQueueUrl) {
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes'],
+          resources: ['*'],
+        })
+      );
+    }
+
     const executionRole = new iam.Role(this, 'GatewayTaskExecutionRole', {
       roleName: getEnvSpecificName('GatewayTaskExecutionRole'),
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
@@ -282,6 +293,9 @@ export class GatewayEcsService extends Construct {
         REDIS_PORT: (this.redisCluster.redisCluster as CfnReplicationGroup).attrPrimaryEndPointPort,
         ...(this.props.stateMachineArn
           ? { ORDER_SAGA_STATE_MACHINE_ARN: this.props.stateMachineArn }
+          : {}),
+        ...(this.props.invalidationQueueUrl
+          ? { INVALIDATION_QUEUE_URL: this.props.invalidationQueueUrl }
           : {}),
       },
       cpu: 256,

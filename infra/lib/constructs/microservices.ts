@@ -1,6 +1,10 @@
+import { Duration } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
+import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
 import { AppConfig } from '../shared/config';
@@ -22,6 +26,7 @@ export class Microservices extends Construct {
   public readonly apiGatewayUrl: string = '';
   public readonly eventBus: sns.Topic;
   public readonly stateMachineArn: string = '';
+  public readonly gatewayInvalidationQueueUrl: string = '';
 
   private ordersLambda?: lambda.IFunction;
   private paymentsLambda?: lambda.IFunction;
@@ -98,6 +103,46 @@ export class Microservices extends Construct {
       });
       this.stateMachineArn = saga.stateMachine.stateMachineArn;
     }
+
+    // Gateway cache invalidation queue — receives product.stock_changed from SNS
+    const invalidationDlq = new Queue(this, 'GatewayInvalidationDLQ', {
+      queueName: `${props.appConfig.deployEnv}-GatewayInvalidationDLQ`,
+      encryption: QueueEncryption.SQS_MANAGED,
+      enforceSSL: true,
+      retentionPeriod: Duration.days(14),
+    });
+
+    const invalidationQueue = new Queue(this, 'GatewayInvalidationQueue', {
+      queueName: `${props.appConfig.deployEnv}-GatewayInvalidationQueue`,
+      encryption: QueueEncryption.SQS_MANAGED,
+      enforceSSL: true,
+      visibilityTimeout: Duration.seconds(30),
+      receiveMessageWaitTime: Duration.seconds(5),
+      deadLetterQueue: { maxReceiveCount: 5, queue: invalidationDlq },
+    });
+
+    this.eventBus.addSubscription(
+      new subscriptions.SqsSubscription(invalidationQueue, {
+        rawMessageDelivery: true,
+        filterPolicy: {
+          subject: sns.SubscriptionFilter.stringFilter({
+            matchPrefixes: ['product.stock_changed'],
+          }),
+        },
+      })
+    );
+
+    invalidationQueue.addToResourcePolicy(
+      new iam.PolicyStatement({
+        principals: [new iam.ServicePrincipal('sns.amazonaws.com')],
+        effect: iam.Effect.ALLOW,
+        actions: ['sqs:SendMessage'],
+        resources: [invalidationQueue.queueArn],
+        conditions: { ArnEquals: { 'aws:SourceArn': this.eventBus.topicArn } },
+      })
+    );
+
+    this.gatewayInvalidationQueueUrl = invalidationQueue.queueUrl;
 
     if (this.anyServiceEnabled(props.appConfig)) {
       const api = new InternalApiGateway(this, 'InternalApiGateway', {
