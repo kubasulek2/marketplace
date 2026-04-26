@@ -69,6 +69,7 @@ export class InventoryService extends Construct {
       environment: {
         NO_COLOR: 'true',
         TABLE_NAME: getEnvSpecificName('InventoryTable'),
+        EVENT_BUS_URL: props.eventBus.topicArn,
       },
       functionName: getEnvSpecificName('InventoryLambda'),
       logGroup: LogGroup.fromLogGroupName(

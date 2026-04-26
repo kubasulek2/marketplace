@@ -1,20 +1,33 @@
 import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, SQSRecord } from 'aws-lambda';
 import { createHandler } from '@marketplace/service-handler';
 
 const dynamo = new DynamoDBClient({});
+const sns = new SNSClient({});
 const TABLE = process.env.TABLE_NAME ?? '';
+const EVENT_BUS_URL = process.env.EVENT_BUS_URL ?? '';
 
 function ok(body: unknown, status = 200): APIGatewayProxyResult {
   return { statusCode: status, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
 }
 
-const httpHandler = async (event: APIGatewayProxyEvent & { action?: string; input?: unknown }): Promise<APIGatewayProxyResult> => {
+async function publishStockChanged(productId: string) {
+  if (!EVENT_BUS_URL) return;
+  await sns.send(new PublishCommand({
+    TopicArn: EVENT_BUS_URL,
+    Message: JSON.stringify({ productId }),
+    Subject: 'product.stock_changed',
+  }));
+}
+
+const httpHandler = async (event: APIGatewayProxyEvent & { action?: string }): Promise<APIGatewayProxyResult> => {
   const action = event.action ?? 'reserve';
-  const productId = 'product-1';
+  const productId = event.pathParameters?.id ?? 'product-1';
 
   if (action === 'release') {
-    console.log('Compensating: release inventory', event);
+    console.log('Compensating: release inventory');
+    await publishStockChanged(productId);
     return ok({ action: 'released', productId });
   }
 
@@ -27,14 +40,15 @@ const httpHandler = async (event: APIGatewayProxyEvent & { action?: string; inpu
     },
   }));
 
+  await publishStockChanged(productId);
   return ok({ action, productId });
 };
 
 const queueHandler = async (record: SQSRecord): Promise<void> => {
   console.log('Inventory SQS record:', record.body);
-  const body = JSON.parse(record.body) as { subject?: string };
-  if (body.subject === 'inventory.restocked') {
-    console.log('Processing restock event');
+  const body = JSON.parse(record.body) as { subject?: string; productId?: string };
+  if (body.subject === 'inventory.restocked' && body.productId) {
+    await publishStockChanged(body.productId);
   }
 };
 
