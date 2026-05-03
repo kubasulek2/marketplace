@@ -14,6 +14,7 @@ import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
 import { AppConfig } from '../../shared/config';
+import { scalingConfig } from '../../shared/scaling-config';
 import { getEnvSpecificName } from '../../shared/getEnvSpecificName';
 import { ProductsAurora } from '../products-aurora';
 
@@ -69,8 +70,8 @@ export class ProductsService extends Construct {
         nodeModules: ['pg'],
       },
       tracing: Tracing.ACTIVE,
-      timeout: Duration.seconds(30),
-      memorySize: 256,
+      timeout: Duration.seconds(scalingConfig.lambdaTimeoutSeconds),
+      memorySize: scalingConfig.lambdaMemoryMb,
       vpc: props.vpc,
       allowPublicSubnet: true,
       vpcSubnets: {

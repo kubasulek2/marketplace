@@ -11,6 +11,7 @@ import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 
 import { getEnvSpecificName } from '../../../shared/getEnvSpecificName';
+import { scalingConfig } from '../../../shared/scaling-config';
 import { NetworkStack } from '../../../stacks/network-stack';
 
 interface GatewayAlbProps {
@@ -149,8 +150,8 @@ export class GatewayAlb extends Construct {
         period: Duration.minutes(1),
       }),
       scalingSteps: [
-        { lower: 100, change: 1 }, // Increase by 1 task if request count > 100
-        { lower: 200, change: 2 }, // Increase by 2 tasks if request count > 200
+        { lower: scalingConfig.albScaleReqLow, change: 1 },
+        { lower: scalingConfig.albScaleReqHigh, change: 2 },
       ],
       evaluationPeriods: 2,
     });
@@ -161,8 +162,8 @@ export class GatewayAlb extends Construct {
         period: Duration.minutes(1),
       }),
       scalingSteps: [
-        { lower: 2, change: 1 },
-        { lower: 3, change: 2 },
+        { lower: scalingConfig.albScaleLatencyLowS, change: 1 },
+        { lower: scalingConfig.albScaleLatencyHighS, change: 2 },
       ],
       evaluationPeriods: 2,
     });

@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 
 import { AppConfig } from '../../../shared/config';
 import { getEnvSpecificName } from '../../../shared/getEnvSpecificName';
+import { scalingConfig } from '../../../shared/scaling-config';
 
 export interface RedisClusterConstructProps {
   vpc: ec2.IVpc;
@@ -38,7 +39,7 @@ export class RedisGatewayCluster extends Construct {
     if (props.appConfig.performanceMode) {
       this.redisCluster = new elasticache.CfnReplicationGroup(this, 'RedisReplicationGroup', {
         replicationGroupDescription: 'Redis cluster mode disabled',
-        cacheNodeType: 'cache.t3.micro',
+        cacheNodeType: scalingConfig.redisNodeType,
         engine: 'redis',
         engineVersion: '7.0',
         authToken: this.redisPassword,

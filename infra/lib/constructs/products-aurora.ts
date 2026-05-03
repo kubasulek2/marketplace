@@ -15,6 +15,15 @@ import {
 import { Construct } from 'constructs';
 
 import { AppConfig } from '../shared/config';
+import { scalingConfig } from '../shared/scaling-config';
+
+const EC2_INSTANCE_SIZE_MAP: Record<string, ec2.InstanceSize> = {
+  MICRO: ec2.InstanceSize.MICRO,
+  SMALL: ec2.InstanceSize.SMALL,
+  MEDIUM: ec2.InstanceSize.MEDIUM,
+  LARGE: ec2.InstanceSize.LARGE,
+  XLARGE: ec2.InstanceSize.XLARGE,
+};
 import { getEnvSpecificName } from '../shared/getEnvSpecificName';
 
 interface ProductsAuroraProps {
@@ -53,7 +62,10 @@ export class ProductsAurora extends Construct {
       subnetGroupName: 'products-subnet-group',
     });
 
-    const instanceType = ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM);
+    const instanceType = ec2.InstanceType.of(
+      ec2.InstanceClass.T3,
+      EC2_INSTANCE_SIZE_MAP[scalingConfig.auroraInstanceSize] ?? ec2.InstanceSize.MEDIUM
+    );
 
     const monitoringRole = new Role(this, 'MonitoringRole', {
       assumedBy: new ServicePrincipal('monitoring.rds.amazonaws.com'),
@@ -78,7 +90,9 @@ export class ProductsAurora extends Construct {
       credentials: aws_rds.Credentials.fromGeneratedSecret('app'),
       autoMinorVersionUpgrade: true,
       backup: {
-        retention: appConfig.performanceMode ? Duration.days(30) : Duration.days(10),
+        retention: appConfig.performanceMode
+          ? Duration.days(scalingConfig.auroraBackupRetentionPerf)
+          : Duration.days(scalingConfig.auroraBackupRetentionDev),
       },
       writer: aws_rds.ClusterInstance.provisioned('writer', {
         instanceType,
@@ -131,15 +145,15 @@ export class ProductsAurora extends Construct {
         'AuroraReadReplicaScalingTarget',
         {
           serviceNamespace: autoscaling.ServiceNamespace.RDS,
-          maxCapacity: 2,
-          minCapacity: 1,
+          maxCapacity: scalingConfig.auroraReplicaMax,
+          minCapacity: scalingConfig.auroraReplicaMin,
           resourceId: `cluster:${this.cluster.clusterIdentifier}`,
           scalableDimension: 'rds:cluster:ReadReplicaCount',
         }
       );
 
       scalableTarget.scaleToTrackMetric('CPUUtilizationTrackingPolicy', {
-        targetValue: 60,
+        targetValue: scalingConfig.auroraReplicaCpuTarget,
         predefinedMetric: autoscaling.PredefinedMetric.RDS_READER_AVERAGE_CPU_UTILIZATION,
         scaleInCooldown: Duration.seconds(300),
         scaleOutCooldown: Duration.seconds(300),
@@ -160,7 +174,7 @@ export class ProductsAurora extends Construct {
           : ec2.SubnetType.PUBLIC,
       },
       idleClientTimeout: Duration.minutes(30),
-      maxConnectionsPercent: 90,
+      maxConnectionsPercent: scalingConfig.rdsProxyMaxConnectionsPct,
       debugLogging: false,
     });
     this.endpoint = proxy.endpoint;

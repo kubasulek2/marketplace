@@ -13,6 +13,15 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import { Construct } from 'constructs';
 
 import { AppConfig } from '../../../shared/config';
+import { scalingConfig } from '../../../shared/scaling-config';
+
+const EC2_INSTANCE_SIZE_MAP: Record<string, ec2.InstanceSize> = {
+  MICRO: ec2.InstanceSize.MICRO,
+  SMALL: ec2.InstanceSize.SMALL,
+  MEDIUM: ec2.InstanceSize.MEDIUM,
+  LARGE: ec2.InstanceSize.LARGE,
+  XLARGE: ec2.InstanceSize.XLARGE,
+};
 import { vpcEndpointSg } from '../../../shared/exports';
 import { getEnvSpecificName } from '../../../shared/getEnvSpecificName';
 import { NetworkStack } from '../../../stacks/network-stack';
@@ -168,7 +177,9 @@ export class GatewayEcsService extends Construct {
       ),
       instanceType: ec2.InstanceType.of(
         ec2.InstanceClass.T3,
-        this.props.config.performanceMode ? ec2.InstanceSize.MEDIUM : ec2.InstanceSize.MICRO
+        this.props.config.performanceMode
+          ? (EC2_INSTANCE_SIZE_MAP[scalingConfig.ec2InstanceSizePerf] ?? ec2.InstanceSize.MEDIUM)
+          : (EC2_INSTANCE_SIZE_MAP[scalingConfig.ec2InstanceSizeDev] ?? ec2.InstanceSize.MICRO)
       ),
       detailedMonitoring: true,
       requireImdsv2: true,
@@ -298,9 +309,9 @@ export class GatewayEcsService extends Construct {
           ? { INVALIDATION_QUEUE_URL: this.props.invalidationQueueUrl }
           : {}),
       },
-      cpu: 256,
-      memoryReservationMiB: 256, // soft limit
-      memoryLimitMiB: 512, // hard limit
+      cpu: scalingConfig.gatewayContainerCpu,
+      memoryReservationMiB: scalingConfig.gatewayContainerMemorySoftMb,
+      memoryLimitMiB: scalingConfig.gatewayContainerMemoryHardMb,
       healthCheck: {
         command: ['CMD-SHELL', 'curl -f http://localhost:80/health || exit 1'],
         interval: Duration.seconds(30),
@@ -331,8 +342,8 @@ export class GatewayEcsService extends Construct {
     // Create Auto Scaling Group (ASG) for ECS instances
     return new autoscaling.AutoScalingGroup(this, 'ECSAutoScalingGroup', {
       vpc: this.props.vpc,
-      minCapacity: this.props.config.performanceMode ? 2 : 1,
-      maxCapacity: this.props.config.performanceMode ? 8 : 2,
+      minCapacity: this.props.config.performanceMode ? scalingConfig.asgMinCapacityPerf : scalingConfig.asgMinCapacityDev,
+      maxCapacity: this.props.config.performanceMode ? scalingConfig.asgMaxCapacityPerf : scalingConfig.asgMaxCapacityDev,
       vpcSubnets: this.props.config.usePrivateSubnets
         ? {
             subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
@@ -398,8 +409,8 @@ export class GatewayEcsService extends Construct {
   private createAutoScaling(service: ecs.Ec2Service) {
     // ECS Service Auto Scaling (Task level auto scaling)
     const scalableTarget = service.autoScaleTaskCount({
-      minCapacity: this.props.config.performanceMode ? 2 : 1,
-      maxCapacity: this.props.config.performanceMode ? 8 : 4,
+      minCapacity: this.props.config.performanceMode ? scalingConfig.ecsTaskMinPerf : scalingConfig.ecsTaskMinDev,
+      maxCapacity: this.props.config.performanceMode ? scalingConfig.ecsTaskMaxPerf : scalingConfig.ecsTaskMaxDev,
     });
 
     scalableTarget.scaleOnCpuUtilization('CpuScaling', {
