@@ -98,12 +98,12 @@ export class GatewayAlb extends Construct {
       },
     });
 
-    // 1️⃣ Public route: GET /products (no Cognito auth, but requires origin secret)
+    // 1️⃣ Public routes: GET /products and GET /products/:id (no Cognito auth, but requires origin secret)
     listener.addAction('PublicProductsRoute', {
       priority: 1,
       conditions: [
         elbv2.ListenerCondition.httpHeader('X-Origin-Secret', [props.originSecret]),
-        elbv2.ListenerCondition.pathPatterns(['/products']),
+        elbv2.ListenerCondition.pathPatterns(['/products', '/products/*']),
         elbv2.ListenerCondition.httpRequestMethods(['GET']),
       ],
       action: elbv2.ListenerAction.forward([targetGroup]),
