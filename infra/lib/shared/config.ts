@@ -10,6 +10,7 @@ const appConfigSchema = z.object({
   performanceMode: z.boolean(),
   deployEnv: z.enum(['dev', 'prod']),
   project: z.string(),
+  redisAuthToken: z.string(),
   services: z.object({
     products: z.boolean(),
     orders: z.boolean(),
@@ -38,6 +39,7 @@ const getAppConfig = (): AppConfig => {
     performanceMode: readOptionalBool('PERFORMANCE_MODE', true),
     deployEnv: readRequiredString('DEPLOY_ENV'),
     project: 'marketplace',
+    redisAuthToken: readRequiredString('REDIS_AUTH_TOKEN'),
     services: {
       products: readOptionalBool('SERVICES_PRODUCTS', true),
       orders: readOptionalBool('SERVICES_ORDERS', true),

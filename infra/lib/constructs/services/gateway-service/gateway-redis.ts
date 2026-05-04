@@ -14,7 +14,6 @@ export class RedisGatewayCluster extends Construct {
   public readonly redisSecurityGroup: ec2.ISecurityGroup;
   public readonly redisRole: iam.Role;
   public readonly redisCluster: elasticache.CfnReplicationGroup;
-  public readonly redisPassword: string;
 
   constructor(scope: Construct, id: string, props: RedisClusterConstructProps) {
     super(scope, id);
@@ -34,14 +33,12 @@ export class RedisGatewayCluster extends Construct {
       cacheSubnetGroupName: getEnvSpecificName('redis-subnet-group'),
     });
 
-    this.redisPassword = 'my-secret-token';
-
     this.redisCluster = new elasticache.CfnReplicationGroup(this, 'RedisReplicationGroup', {
       replicationGroupDescription: 'Redis cluster mode disabled',
       cacheNodeType: scalingConfig.redisNodeType,
       engine: 'redis',
       engineVersion: '7.0',
-      authToken: this.redisPassword,
+      authToken: appConfig.redisAuthToken,
       ipDiscovery: 'ipv4',
       multiAzEnabled: appConfig.performanceMode,
       networkType: 'ipv4',

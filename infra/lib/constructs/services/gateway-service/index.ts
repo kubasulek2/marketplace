@@ -282,6 +282,16 @@ export class GatewayEcsService extends Construct {
     });
 
     taskDefinition.addContainer('GatewayContainer', {
+      // ...
+      healthCheck: {
+        command: ['CMD-SHELL', 'curl -f http://localhost:80/health || exit 1'],
+        interval: Duration.seconds(30),
+        timeout: Duration.seconds(5),
+        retries: 3,
+        startPeriod: Duration.seconds(60),
+      },
+      // ...
+      
       image: ecs.ContainerImage.fromAsset('../services/gateway'),
       essential: true,
       portMappings: [
@@ -298,7 +308,7 @@ export class GatewayEcsService extends Construct {
       environment: {
         API_GATEWAY_URL: this.props.apiGatewayUrl,
         EVENT_BUS_URL: this.props.eventBus.topicArn,
-        REDIS_PASSWORD: this.redisCluster.redisPassword,
+        REDIS_PASSWORD: this.props.config.redisAuthToken,
         REDIS_HOST: (this.redisCluster.redisCluster as CfnReplicationGroup)
           .attrPrimaryEndPointAddress,
         REDIS_PORT: (this.redisCluster.redisCluster as CfnReplicationGroup).attrPrimaryEndPointPort,
@@ -312,13 +322,7 @@ export class GatewayEcsService extends Construct {
       cpu: scalingConfig.gatewayContainerCpu,
       memoryReservationMiB: scalingConfig.gatewayContainerMemorySoftMb,
       memoryLimitMiB: scalingConfig.gatewayContainerMemoryHardMb,
-      healthCheck: {
-        command: ['CMD-SHELL', 'curl -f http://localhost:80/health || exit 1'],
-        interval: Duration.seconds(30),
-        timeout: Duration.seconds(5),
-        retries: 3,
-        startPeriod: Duration.seconds(60),
-      },
+      
     });
 
     // X-Ray daemon sidecar — receives segments from the Express app and forwards to AWS X-Ray
