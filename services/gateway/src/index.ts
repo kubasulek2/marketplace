@@ -21,15 +21,13 @@ const sfn = new SFNClient({ region: REGION });
 const sns = new SNSClient({ region: REGION });
 const sqs = new SQSClient({ region: REGION });
 
-const redis = process.env.REDIS_HOST
-  ? new Redis({
-      host: process.env.REDIS_HOST,
-      port: Number(process.env.REDIS_PORT ?? 6379),
-      password: process.env.REDIS_PASSWORD,
-      tls: {},
-      lazyConnect: true,
-    })
-  : null;
+const redis = new Redis({
+  host: process.env.REDIS_HOST!,
+  port: Number(process.env.REDIS_PORT ?? 6379),
+  password: process.env.REDIS_PASSWORD,
+  tls: {},
+  lazyConnect: true,
+});
 
 // Health check
 app.get('/health', (_req, res) => {
@@ -46,18 +44,17 @@ app.get('/products', async (_req, res) => {
     res.status(500).json({ error: 'Failed to fetch products' });
   }
 });
+// @ts-ignore — express 4 + @types/express 5 overload mismatch on param routes
 
 // BFFE: enrich single product with live stock level, cache in Redis (cache-aside)
 app.get('/products/:id', async (req, res) => {
   const { id } = req.params;
   const cacheKey = `product:${id}`;
 
-  if (redis) {
-    try {
-      const cached = await redis.get(cacheKey);
-      if (cached) return res.json(JSON.parse(cached));
-    } catch (_) { /* Redis unavailable — fall through */ }
-  }
+  try {
+    const cached = await redis.get(cacheKey);
+    if (cached) return res.json(JSON.parse(cached));
+  } catch (_) {}
 
   try {
     const [productRes, inventoryRes] = await Promise.all([
@@ -71,12 +68,7 @@ app.get('/products/:id', async (req, res) => {
     const inventory = inventoryRes.ok ? await inventoryRes.json() : {};
     const enriched = { ...product, stockLevel: inventory.amount ?? 0 };
 
-    if (redis) {
-      try {
-        await redis.set(cacheKey, JSON.stringify(enriched), 'EX', PRODUCT_CACHE_TTL);
-      } catch (_) { /* Redis unavailable — return without caching */ }
-    }
-
+    await redis.set(cacheKey, JSON.stringify(enriched), 'EX', PRODUCT_CACHE_TTL);
     return res.json(enriched);
   } catch (err) {
     return res.status(500).json({ error: 'Failed to fetch product' });
@@ -123,7 +115,7 @@ app.use(AWSXRay.express.closeSegment());
 
 // Background SQS polling — event-driven cache invalidation
 async function pollInvalidationQueue() {
-  if (!INVALIDATION_QUEUE_URL || !redis) return;
+  if (!INVALIDATION_QUEUE_URL) return;
   try {
     const { Messages } = await sqs.send(new ReceiveMessageCommand({
       QueueUrl: INVALIDATION_QUEUE_URL,
