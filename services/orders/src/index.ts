@@ -1,9 +1,12 @@
 import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, SQSRecord } from 'aws-lambda';
 import { createHandler } from '@marketplace/service-handler';
 
 const dynamo = new DynamoDBClient({});
+const sns = new SNSClient({});
 const TABLE = process.env.TABLE_NAME ?? '';
+const EVENT_BUS_URL = process.env.EVENT_BUS_URL ?? '';
 
 function ok(body: unknown, status = 200): APIGatewayProxyResult {
   return { statusCode: status, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
@@ -27,6 +30,12 @@ const httpHandler = async (event: APIGatewayProxyEvent & { action?: string; inpu
       status: { S: 'placed' },
       createdAt: { S: new Date().toISOString() },
     },
+  }));
+
+  await sns.send(new PublishCommand({
+    TopicArn: EVENT_BUS_URL,
+    Message: JSON.stringify({ orderId, userId }),
+    Subject: 'order.placed',
   }));
 
   return ok({ action: 'placed', orderId, userId });
