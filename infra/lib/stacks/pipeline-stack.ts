@@ -40,6 +40,10 @@ export class PipelineStack extends cdk.Stack {
         DEPLOY_ENV: { value: props.config.deployEnv },
         CDK_DEFAULT_ACCOUNT: { value: props.env.account },
         CDK_DEFAULT_REGION: { value: props.env.region },
+        REDIS_AUTH_TOKEN: {
+          value: `/${props.config.project}/${props.config.deployEnv}/redis-auth-token`,
+          type: codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
+        },
       },
       buildSpec: codebuild.BuildSpec.fromSourceFilename('buildspec.yml'),
       timeout: cdk.Duration.minutes(30),
